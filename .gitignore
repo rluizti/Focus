@@ -1,0 +1,8 @@
+/target
+/build
+*.o
+*.a
+*.so
+.DS_Store
+*.user
+CMakeLists.txt.user
