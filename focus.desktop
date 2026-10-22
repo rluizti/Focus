@@ -1,0 +1,13 @@
+[Desktop Entry]
+Name=Focus
+GenericName=Web Browser
+Comment=Navegador minimalista e rápido para Omarchy OS
+Exec=focus %U
+Icon=focus
+Terminal=false
+Type=Application
+Categories=Network;WebBrowser;
+MimeType=text/html;text/xml;application/xhtml+xml;x-scheme-handler/http;x-scheme-handler/https;
+StartupNotify=true
+StartupWMClass=Focus
+Keywords=browser;web;internet;focus;omarchy;

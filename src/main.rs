@@ -129,13 +129,18 @@ fn main() {
         .unwrap_or_else(|| PathBuf::from("."));
 
     // Check workspace ui path or installed ui path
-    let qml_candidates = [
+    let mut qml_candidates = vec![
         PathBuf::from("/mnt/Dados/Projects/Focus/ui/main.qml"),
         PathBuf::from("/mnt/Dados/Projects/omabrowser/ui/main.qml"),
         exe_dir.join("../ui/main.qml"),
         exe_dir.join("ui/main.qml"),
         PathBuf::from("/usr/share/focus/ui/main.qml"),
+        PathBuf::from("/usr/local/share/focus/ui/main.qml"),
     ];
+
+    if let Ok(home) = std::env::var("HOME") {
+        qml_candidates.push(PathBuf::from(home).join(".local/share/focus/ui/main.qml"));
+    }
 
     let qml_path = qml_candidates
         .iter()
