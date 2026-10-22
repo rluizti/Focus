@@ -29,6 +29,9 @@ if [ "$MODE" == "system" ]; then
 
     sudo mkdir -p /usr/share/icons/hicolor/scalable/apps
     sudo install -m 644 assets/focus.svg /usr/share/icons/hicolor/scalable/apps/focus.svg
+    sudo mkdir -p /usr/share/icons/hicolor/512x512/apps && sudo install -m 644 assets/focus.png /usr/share/icons/hicolor/512x512/apps/focus.png
+    sudo mkdir -p /usr/share/icons/hicolor/256x256/apps && sudo install -m 644 assets/focus_256.png /usr/share/icons/hicolor/256x256/apps/focus.png
+    sudo mkdir -p /usr/share/icons/hicolor/128x128/apps && sudo install -m 644 assets/focus_128.png /usr/share/icons/hicolor/128x128/apps/focus.png
 
     if command -v update-desktop-database &> /dev/null; then
         sudo update-desktop-database /usr/share/applications &> /dev/null || true
@@ -50,6 +53,9 @@ else
 
     mkdir -p "$HOME/.local/share/icons/hicolor/scalable/apps"
     install -m 644 assets/focus.svg "$HOME/.local/share/icons/hicolor/scalable/apps/focus.svg"
+    mkdir -p "$HOME/.local/share/icons/hicolor/512x512/apps" && install -m 644 assets/focus.png "$HOME/.local/share/icons/hicolor/512x512/apps/focus.png"
+    mkdir -p "$HOME/.local/share/icons/hicolor/256x256/apps" && install -m 644 assets/focus_256.png "$HOME/.local/share/icons/hicolor/256x256/apps/focus.png"
+    mkdir -p "$HOME/.local/share/icons/hicolor/128x128/apps" && install -m 644 assets/focus_128.png "$HOME/.local/share/icons/hicolor/128x128/apps/focus.png"
 
     if command -v update-desktop-database &> /dev/null; then
         update-desktop-database "$HOME/.local/share/applications" &> /dev/null || true
