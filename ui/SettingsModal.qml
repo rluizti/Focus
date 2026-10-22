@@ -114,7 +114,7 @@ Item {
                         Rectangle {
                             width: 28
                             height: 28
-                            radius: 7
+                            radius: 0
                             color: Theme.accent
 
                             Text {
@@ -154,7 +154,7 @@ Item {
                         Rectangle {
                             width: 172
                             height: 38
-                            radius: 8
+                            radius: 0
                             color: card.activeSection === modelData.id ? Theme.selection : (itemMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.05) : "transparent")
                             border.color: card.activeSection === modelData.id ? Theme.accent : "transparent"
                             border.width: 1
@@ -202,7 +202,7 @@ Item {
                 Rectangle {
                     width: 30
                     height: 30
-                    radius: 15
+                    radius: 0
                     anchors.top: parent.top
                     anchors.right: parent.right
                     anchors.margins: 14
@@ -255,7 +255,7 @@ Item {
                         Rectangle {
                             width: parent.width
                             height: 68
-                            radius: 10
+                            radius: 0
                             color: bridge.currentEngine === "chromium" ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(1, 1, 1, 0.02)
                             border.color: bridge.currentEngine === "chromium" ? Theme.accent : Theme.border
                             border.width: bridge.currentEngine === "chromium" ? 2 : 1
@@ -298,7 +298,7 @@ Item {
                         Rectangle {
                             width: parent.width
                             height: 68
-                            radius: 10
+                            radius: 0
                             color: bridge.currentEngine === "firefox" ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(1, 1, 1, 0.02)
                             border.color: bridge.currentEngine === "firefox" ? Theme.accent : Theme.border
                             border.width: bridge.currentEngine === "firefox" ? 2 : 1
@@ -374,7 +374,7 @@ Item {
                             Rectangle {
                                 width: parent.width
                                 height: 50
-                                radius: 8
+                                radius: 0
                                 color: (card.config.search_engine || "google") === modelData.id ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(1, 1, 1, 0.02)
                                 border.color: (card.config.search_engine || "google") === modelData.id ? Theme.accent : Theme.border
                                 border.width: 1
@@ -394,7 +394,7 @@ Item {
                                     Rectangle {
                                         width: 16
                                         height: 16
-                                        radius: 8
+                                        radius: 0
                                         border.color: Theme.accent
                                         border.width: 2
                                         color: "transparent"
@@ -403,7 +403,7 @@ Item {
                                         Rectangle {
                                             width: 8
                                             height: 8
-                                            radius: 4
+                                            radius: 0
                                             color: Theme.accent
                                             anchors.centerIn: parent
                                             visible: (card.config.search_engine || "google") === modelData.id
@@ -450,7 +450,7 @@ Item {
                         Rectangle {
                             width: parent.width
                             height: 72
-                            radius: 10
+                            radius: 0
                             color: Qt.rgba(1, 1, 1, 0.04)
                             border.color: Theme.border
                             border.width: 1
@@ -482,7 +482,7 @@ Item {
                             Rectangle {
                                 width: 110
                                 height: 34
-                                radius: 8
+                                radius: 0
                                 anchors.right: parent.right
                                 anchors.rightMargin: 16
                                 anchors.verticalCenter: parent.verticalCenter
@@ -511,7 +511,7 @@ Item {
                         Rectangle {
                             width: parent.width
                             height: 72
-                            radius: 10
+                            radius: 0
                             color: Qt.rgba(1, 1, 1, 0.04)
                             border.color: Theme.border
                             border.width: 1
@@ -543,7 +543,7 @@ Item {
                             Rectangle {
                                 width: 110
                                 height: 34
-                                radius: 8
+                                radius: 0
                                 anchors.right: parent.right
                                 anchors.rightMargin: 16
                                 anchors.verticalCenter: parent.verticalCenter
@@ -611,7 +611,7 @@ Item {
                                     Rectangle {
                                         width: 50
                                         height: 35
-                                        radius: 6
+                                        radius: 0
                                         color: modelData.color
                                         border.color: Theme.border
                                         border.width: 1

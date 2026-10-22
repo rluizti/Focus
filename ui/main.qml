@@ -9,50 +9,68 @@ Window {
     height: 800
     minimumWidth: 600
     minimumHeight: 400
-    title: bridge.pageTitle ? (bridge.pageTitle + " — Focus") : "Focus"
+    title: activeWebTitle ? (activeWebTitle + " — Focus") : "Focus"
     color: Theme.background
 
-    // WebEngine View
-    WebEngineView {
-        id: webView
-        anchors.fill: parent
-        url: bridge.currentUrl
-
-        onUrlChanged: {
-            bridge.currentUrl = url.toString()
-        }
-
-        onTitleChanged: {
-            bridge.pageTitle = title
-        }
-
-        onLoadingChanged: function(loadRequest) {
-            bridge.isLoading = (loadRequest.status === WebEngineView.LoadStartedStatus)
-        }
-
-        profile: WebEngineProfile.defaultProfile
-    }
-
-    // Top Loading Progress Bar
-    Rectangle {
-        id: progressBar
-        height: 2
-        anchors.top: parent.top
-        anchors.left: parent.left
-        width: parent.width * (webView.loadProgress / 100.0)
-        color: Theme.accent
-        visible: webView.loading
-        z: 900
-
-        Behavior on width {
-            NumberAnimation { duration: 100 }
+    // Tabs Model for Multi-tab & Workspace management
+    ListModel {
+        id: tabsModel
+        ListElement {
+            tabId: 1
+            title: "Google"
+            url: "https://www.google.com"
+            workspace: "Principal"
         }
     }
 
-    // Top Edge Trigger Zone (Hovering at the very top triggers launcher)
+    property int activeTabIndex: 0
+    property string activeWebTitle: ""
+
+    // 100% CLEAN USEFUL AREA - WebEngineView occupies the entire screen
+    // Multiple tabs hosted cleanly
+    Repeater {
+        id: tabsRepeater
+        model: tabsModel
+
+        delegate: Item {
+            anchors.fill: parent
+            visible: index === window.activeTabIndex
+
+            WebEngineView {
+                id: webView
+                anchors.fill: parent
+                url: model.url
+
+                profile: WebEngineProfile.defaultProfile
+
+                onUrlChanged: {
+                    if (index === window.activeTabIndex) {
+                        bridge.currentUrl = url.toString();
+                    }
+                    tabsModel.setProperty(index, "url", url.toString());
+                }
+
+                onTitleChanged: {
+                    if (index === window.activeTabIndex) {
+                        window.activeWebTitle = title;
+                        bridge.pageTitle = title;
+                    }
+                    tabsModel.setProperty(index, "title", title);
+                }
+
+                onLoadingChanged: function(loadRequest) {
+                    if (index === window.activeTabIndex) {
+                        bridge.isLoading = (loadRequest.status === WebEngineView.LoadStartedStatus);
+                    }
+                }
+            }
+        }
+    }
+
+    // Top Edge Trigger Zone (Hovering at the extreme top edge reveals the launcher)
     MouseArea {
         id: topHoverTrigger
-        height: 6
+        height: 4
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: parent.right
@@ -64,18 +82,54 @@ Window {
         }
     }
 
-    // Expandable Top Launcher (Summoned with Space or hovering top)
+    // Expandable Top Launcher - The SOLE point of interaction
     Launcher {
         id: launcher
+        tabsModel: tabsModel
+        activeTabIndex: window.activeTabIndex
 
-        onWebViewAction: function(action) {
-            if (action === "back") webView.goBack()
-            else if (action === "forward") webView.goForward()
-            else if (action === "reload") webView.reload()
+        onOpenUrlInTab: function(url) {
+            if (tabsModel.count > 0 && window.activeTabIndex < tabsModel.count) {
+                tabsModel.setProperty(window.activeTabIndex, "url", url);
+                bridge.currentUrl = url;
+            }
+        }
+
+        onNewTabRequested: function(url, workspace) {
+            var newId = tabsModel.count + 1;
+            tabsModel.append({
+                tabId: newId,
+                title: "Nova Aba",
+                url: url,
+                workspace: workspace
+            });
+            window.activeTabIndex = tabsModel.count - 1;
+            bridge.currentUrl = url;
+        }
+
+        onSwitchTabRequested: function(index) {
+            if (index >= 0 && index < tabsModel.count) {
+                window.activeTabIndex = index;
+                var currentTab = tabsModel.get(index);
+                bridge.currentUrl = currentTab.url;
+                window.activeWebTitle = currentTab.title;
+            }
+        }
+
+        onCloseTabRequested: function(index) {
+            if (tabsModel.count > 1) {
+                tabsModel.remove(index);
+                if (window.activeTabIndex >= tabsModel.count) {
+                    window.activeTabIndex = tabsModel.count - 1;
+                }
+                var activeTab = tabsModel.get(window.activeTabIndex);
+                bridge.currentUrl = activeTab.url;
+                window.activeWebTitle = activeTab.title;
+            }
         }
     }
 
-    // Settings Modal
+    // Floating Settings Modal (Estilo Flea SettingsPanel)
     SettingsModal {
         id: settingsModal
     }
@@ -93,11 +147,12 @@ Window {
             } else if (event.key === Qt.Key_L && (event.modifiers & Qt.ControlModifier)) {
                 bridge.launcherVisible = true;
                 event.accepted = true;
+            } else if (event.key === Qt.Key_T && (event.modifiers & Qt.ControlModifier)) {
+                launcher.tabsDrawerOpen = true;
+                bridge.launcherVisible = true;
+                event.accepted = true;
             } else if (event.key === Qt.Key_Comma && (event.modifiers & Qt.ControlModifier)) {
                 bridge.settingsVisible = true;
-                event.accepted = true;
-            } else if (event.key === Qt.Key_R && (event.modifiers & Qt.ControlModifier)) {
-                webView.reload();
                 event.accepted = true;
             } else if (event.key === Qt.Key_Escape) {
                 if (bridge.settingsVisible) {
@@ -114,8 +169,11 @@ Window {
     Connections {
         target: bridge
         function onCurrentUrlChanged() {
-            if (webView.url.toString() !== bridge.currentUrl) {
-                webView.url = bridge.currentUrl;
+            if (tabsModel.count > 0 && window.activeTabIndex < tabsModel.count) {
+                var currentTab = tabsModel.get(window.activeTabIndex);
+                if (currentTab.url !== bridge.currentUrl) {
+                    tabsModel.setProperty(window.activeTabIndex, "url", bridge.currentUrl);
+                }
             }
         }
     }
