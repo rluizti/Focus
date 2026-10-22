@@ -16,7 +16,7 @@ pub struct RustCallbacks {
 }
 
 unsafe extern "C" {
-    fn oma_run_gui(
+    fn focus_run_gui(
         argc: i32,
         argv: *mut *mut c_char,
         qml_file_path: *const c_char,
@@ -36,7 +36,7 @@ extern "C" fn cb_config_saved(json: *const c_char) {
     if let Ok(str_slice) = c_str.to_str() {
         if let Ok(cfg) = serde_json::from_str::<config::BrowserConfig>(str_slice) {
             config::save_config(&cfg);
-            println!("[OmaBrowser] Config saved successfully!");
+            println!("[Focus] Config saved successfully!");
         }
     }
 }
@@ -44,7 +44,7 @@ extern "C" fn cb_config_saved(json: *const c_char) {
 extern "C" fn cb_chrome_sync(out_bookmarks: *mut *mut c_char, out_history: *mut *mut c_char) {
     let sync_result = sync::sync_from_chrome_or_chromium();
     println!(
-        "[OmaBrowser] Synced {} bookmarks and {} history items from {}",
+        "[Focus] Synced {} bookmarks and {} history items from {}",
         sync_result.bookmarks.len(),
         sync_result.history.len(),
         sync_result.source
@@ -78,10 +78,10 @@ extern "C" fn cb_switch_engine(engine: *const c_char, url: *const c_char) {
         ""
     };
 
-    println!("[OmaBrowser] Engine switch triggered: {} for URL: {}", eng_str, url_str);
+    println!("[Focus] Engine switch triggered: {} for URL: {}", eng_str, url_str);
 
     if eng_str == "firefox" {
-        println!("[OmaBrowser] Launching Firefox / Zen Browser instance...");
+        println!("[Focus] Launching Firefox / Zen Browser instance...");
         engines::EngineManager::launch_firefox(url_str);
     }
 }
@@ -131,7 +131,6 @@ fn main() {
     // Check workspace ui path or installed ui path
     let mut qml_candidates = vec![
         PathBuf::from("/mnt/Dados/Projects/Focus/ui/main.qml"),
-        PathBuf::from("/mnt/Dados/Projects/omabrowser/ui/main.qml"),
         exe_dir.join("../ui/main.qml"),
         exe_dir.join("ui/main.qml"),
         PathBuf::from("/usr/share/focus/ui/main.qml"),
@@ -146,9 +145,9 @@ fn main() {
         .iter()
         .find(|p| p.exists())
         .cloned()
-        .unwrap_or_else(|| PathBuf::from("/mnt/Dados/Projects/omabrowser/ui/main.qml"));
+        .unwrap_or_else(|| PathBuf::from("ui/main.qml"));
 
-    println!("[OmaBrowser] Loading QML from: {}", qml_path.display());
+    println!("[Focus] Loading QML from: {}", qml_path.display());
 
     let c_qml_path = CString::new(qml_path.to_string_lossy().as_bytes()).unwrap();
     let c_theme = CString::new(theme_json).unwrap();
@@ -171,7 +170,7 @@ fn main() {
     let argc = c_args.len() as i32;
 
     unsafe {
-        let code = oma_run_gui(
+        let code = focus_run_gui(
             argc,
             c_args.as_mut_ptr(),
             c_qml_path.as_ptr(),

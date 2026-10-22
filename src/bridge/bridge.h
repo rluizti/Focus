@@ -16,7 +16,7 @@ struct RustCallbacks {
     RustFreeStringFn freeString;
 };
 
-class OmaBridge : public QObject {
+class FocusBridge : public QObject {
     Q_OBJECT
     Q_PROPERTY(QString themeJson READ themeJson WRITE setThemeJson NOTIFY themeJsonChanged)
     Q_PROPERTY(QString configJson READ configJson WRITE setConfigJson NOTIFY configJsonChanged)
@@ -35,9 +35,9 @@ class OmaBridge : public QObject {
     Q_PROPERTY(QString extensionsJson READ getLoadedExtensionsJson NOTIFY extensionsChanged)
 
 public:
-    explicit OmaBridge(QObject *parent = nullptr);
+    explicit FocusBridge(QObject *parent = nullptr);
 
-    static OmaBridge* instance();
+    static FocusBridge* instance();
 
     void setCallbacks(RustCallbacks callbacks);
 
@@ -132,7 +132,7 @@ private slots:
     void checkThemeUpdates();
 
 private:
-    static OmaBridge *s_instance;
+    static FocusBridge *s_instance;
     RustCallbacks m_callbacks;
 
     class QFileSystemWatcher *m_themeWatcher = nullptr;
@@ -154,7 +154,7 @@ private:
 };
 
 extern "C" {
-    int oma_run_gui(
+    int focus_run_gui(
         int argc,
         char** argv,
         const char* qml_file_path,

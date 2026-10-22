@@ -75,7 +75,7 @@ pub fn import_bookmarks(path: &Path) -> Vec<BookmarkItem> {
 
 pub fn import_history(path: &Path, limit: usize) -> Vec<HistoryItem> {
     let mut history = Vec::new();
-    let temp_copy = PathBuf::from(format!("/tmp/omabrowser_hist_copy_{}.sqlite", std::process::id()));
+    let temp_copy = PathBuf::from(format!("/tmp/focus_hist_copy_{}.sqlite", std::process::id()));
 
     if fs::copy(path, &temp_copy).is_err() {
         return history;

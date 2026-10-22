@@ -24,103 +24,103 @@
 #include <QUrl>
 #include <iostream>
 
-OmaBridge *OmaBridge::s_instance = nullptr;
+FocusBridge *FocusBridge::s_instance = nullptr;
 
-OmaBridge::OmaBridge(QObject *parent) : QObject(parent) {
+FocusBridge::FocusBridge(QObject *parent) : QObject(parent) {
     s_instance = this;
     m_callbacks = {nullptr, nullptr, nullptr, nullptr};
     restoreSessionFromDisk();
 }
 
-OmaBridge* OmaBridge::instance() {
+FocusBridge* FocusBridge::instance() {
     if (!s_instance) {
-        s_instance = new OmaBridge();
+        s_instance = new FocusBridge();
     }
     return s_instance;
 }
 
-void OmaBridge::setCallbacks(RustCallbacks callbacks) {
+void FocusBridge::setCallbacks(RustCallbacks callbacks) {
     m_callbacks = callbacks;
 }
 
-void OmaBridge::setThemeJson(const QString &val) {
+void FocusBridge::setThemeJson(const QString &val) {
     if (m_themeJson != val) {
         m_themeJson = val;
         emit themeJsonChanged();
     }
 }
 
-void OmaBridge::setConfigJson(const QString &val) {
+void FocusBridge::setConfigJson(const QString &val) {
     if (m_configJson != val) {
         m_configJson = val;
         emit configJsonChanged();
     }
 }
 
-void OmaBridge::setBookmarksJson(const QString &val) {
+void FocusBridge::setBookmarksJson(const QString &val) {
     if (m_bookmarksJson != val) {
         m_bookmarksJson = val;
         emit bookmarksJsonChanged();
     }
 }
 
-void OmaBridge::setHistoryJson(const QString &val) {
+void FocusBridge::setHistoryJson(const QString &val) {
     if (m_historyJson != val) {
         m_historyJson = val;
         emit historyJsonChanged();
     }
 }
 
-void OmaBridge::setCurrentEngine(const QString &val) {
+void FocusBridge::setCurrentEngine(const QString &val) {
     if (m_currentEngine != val) {
         m_currentEngine = val;
         emit currentEngineChanged();
     }
 }
 
-void OmaBridge::setCurrentUrl(const QString &val) {
+void FocusBridge::setCurrentUrl(const QString &val) {
     if (m_currentUrl != val) {
         m_currentUrl = val;
         emit currentUrlChanged();
     }
 }
 
-void OmaBridge::setPageTitle(const QString &val) {
+void FocusBridge::setPageTitle(const QString &val) {
     if (m_pageTitle != val) {
         m_pageTitle = val;
         emit pageTitleChanged();
     }
 }
 
-void OmaBridge::setIsLoading(bool val) {
+void FocusBridge::setIsLoading(bool val) {
     if (m_isLoading != val) {
         m_isLoading = val;
         emit isLoadingChanged();
     }
 }
 
-void OmaBridge::setLoadProgress(qreal val) {
+void FocusBridge::setLoadProgress(qreal val) {
     if (m_loadProgress != val) {
         m_loadProgress = val;
         emit loadProgressChanged();
     }
 }
 
-void OmaBridge::setLauncherVisible(bool val) {
+void FocusBridge::setLauncherVisible(bool val) {
     if (m_launcherVisible != val) {
         m_launcherVisible = val;
         emit launcherVisibleChanged();
     }
 }
 
-void OmaBridge::setSettingsVisible(bool val) {
+void FocusBridge::setSettingsVisible(bool val) {
     if (m_settingsVisible != val) {
         m_settingsVisible = val;
         emit settingsVisibleChanged();
     }
 }
 
-void OmaBridge::saveConfig(const QString &json) {
+void FocusBridge::saveConfig(const QString &json) {
     m_configJson = json;
     emit configJsonChanged();
 
@@ -139,7 +139,7 @@ void OmaBridge::saveConfig(const QString &json) {
     }
 }
 
-QString OmaBridge::passwordsJson() const {
+QString FocusBridge::passwordsJson() const {
     QString path = QDir::homePath() + "/.config/focus/passwords.json";
     QFile file(path);
     if (file.open(QIODevice::ReadOnly)) {
@@ -148,7 +148,7 @@ QString OmaBridge::passwordsJson() const {
     return "[]";
 }
 
-void OmaBridge::saveCredential(const QString &url, const QString &username, const QString &password) {
+void FocusBridge::saveCredential(const QString &url, const QString &username, const QString &password) {
     QString configDir = QDir::homePath() + "/.config/focus";
     QDir().mkpath(configDir);
     QString path = configDir + "/passwords.json";
@@ -189,7 +189,7 @@ void OmaBridge::saveCredential(const QString &url, const QString &username, cons
     emit passwordsJsonChanged();
 }
 
-void OmaBridge::deleteCredential(const QString &id) {
+void FocusBridge::deleteCredential(const QString &id) {
     QString path = QDir::homePath() + "/.config/focus/passwords.json";
     QFile inFile(path);
     if (!inFile.open(QIODevice::ReadOnly)) return;
@@ -216,7 +216,7 @@ void OmaBridge::deleteCredential(const QString &id) {
     emit passwordsJsonChanged();
 }
 
-int OmaBridge::importPasswordsFromCsv(const QString &csvPath) {
+int FocusBridge::importPasswordsFromCsv(const QString &csvPath) {
     QFile file(csvPath);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         return -1;
@@ -292,7 +292,7 @@ int OmaBridge::importPasswordsFromCsv(const QString &csvPath) {
     return importedCount;
 }
 
-void OmaBridge::syncChrome() {
+void FocusBridge::syncChrome() {
     if (m_callbacks.onChromeSync && m_callbacks.freeString) {
         char *b_str = nullptr;
         char *h_str = nullptr;
@@ -308,7 +308,7 @@ void OmaBridge::syncChrome() {
     }
 }
 
-void OmaBridge::switchEngine(const QString &engine, const QString &url) {
+void FocusBridge::switchEngine(const QString &engine, const QString &url) {
     setCurrentEngine(engine);
     if (m_callbacks.onSwitchEngine) {
         QByteArray eng = engine.toUtf8();
@@ -317,7 +317,7 @@ void OmaBridge::switchEngine(const QString &engine, const QString &url) {
     }
 }
 
-void OmaBridge::launchFirefox(const QString &url) {
+void FocusBridge::launchFirefox(const QString &url) {
     // Try zen-browser, firefox, or librewolf
     QStringList candidates = {"zen-browser", "firefox", "librewolf", "waterfox"};
     for (const QString &bin : candidates) {
@@ -329,7 +329,7 @@ void OmaBridge::launchFirefox(const QString &url) {
     }
 }
 
-void OmaBridge::initThemeWatcher() {
+void FocusBridge::initThemeWatcher() {
     m_themeWatcher = new QFileSystemWatcher(this);
     QString stateDir = QDir::homePath() + "/.local/state/omarchy/current";
     QString themeNamePath = stateDir + "/theme.name";
@@ -339,19 +339,19 @@ void OmaBridge::initThemeWatcher() {
     if (QFile::exists(colorsPath)) m_themeWatcher->addPath(colorsPath);
     if (QDir(stateDir).exists()) m_themeWatcher->addPath(stateDir);
 
-    connect(m_themeWatcher, &QFileSystemWatcher::fileChanged, this, &OmaBridge::onThemeFilesChanged);
-    connect(m_themeWatcher, &QFileSystemWatcher::directoryChanged, this, &OmaBridge::onThemeFilesChanged);
+    connect(m_themeWatcher, &QFileSystemWatcher::fileChanged, this, &FocusBridge::onThemeFilesChanged);
+    connect(m_themeWatcher, &QFileSystemWatcher::directoryChanged, this, &FocusBridge::onThemeFilesChanged);
 
     m_themeTimer = new QTimer(this);
-    connect(m_themeTimer, &QTimer::timeout, this, &OmaBridge::checkThemeUpdates);
+    connect(m_themeTimer, &QTimer::timeout, this, &FocusBridge::checkThemeUpdates);
     m_themeTimer->start(600); // 600ms polling guarantees detection even with atomic symlink swaps
 }
 
-void OmaBridge::onThemeFilesChanged() {
+void FocusBridge::onThemeFilesChanged() {
     reloadThemeFromDisk();
 }
 
-void OmaBridge::checkThemeUpdates() {
+void FocusBridge::checkThemeUpdates() {
     QString themeNamePath = QDir::homePath() + "/.local/state/omarchy/current/theme.name";
     QFile file(themeNamePath);
     if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
@@ -364,7 +364,7 @@ void OmaBridge::checkThemeUpdates() {
     }
 }
 
-void OmaBridge::reloadThemeFromDisk() {
+void FocusBridge::reloadThemeFromDisk() {
     QString colorsPath = QDir::homePath() + "/.local/state/omarchy/current/theme/colors.toml";
     QFile file(colorsPath);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
@@ -432,23 +432,23 @@ void OmaBridge::reloadThemeFromDisk() {
     setThemeJson(jsonStr);
 }
 
-void OmaBridge::toggleLauncher() {
+void FocusBridge::toggleLauncher() {
     setLauncherVisible(!m_launcherVisible);
 }
 
-void OmaBridge::toggleSettings() {
+void FocusBridge::toggleSettings() {
     setSettingsVisible(!m_settingsVisible);
 }
 
-void OmaBridge::closeBrowser() {
+void FocusBridge::closeBrowser() {
     QGuiApplication::quit();
 }
 
-bool OmaBridge::isBitwardenInstalled() const {
+bool FocusBridge::isBitwardenInstalled() const {
     return QFile::exists("/usr/bin/bitwarden-desktop") || QFile::exists("/usr/bin/bitwarden") || QFile::exists("/usr/bin/bw");
 }
 
-void OmaBridge::openBitwarden() {
+void FocusBridge::openBitwarden() {
     if (QFile::exists("/usr/bin/bitwarden-desktop")) {
         QProcess::startDetached("/usr/bin/bitwarden-desktop", QStringList());
     } else if (QFile::exists("/usr/bin/bitwarden")) {
@@ -458,15 +458,15 @@ void OmaBridge::openBitwarden() {
     }
 }
 
-QString OmaBridge::getBitwardenStatus() {
+QString FocusBridge::getBitwardenStatus() {
     return getBitwardenCliStatus();
 }
 
-bool OmaBridge::isBitwardenUnlocked() const {
+bool FocusBridge::isBitwardenUnlocked() const {
     return !m_bwSession.isEmpty();
 }
 
-QString OmaBridge::getBitwardenCliStatus() {
+QString FocusBridge::getBitwardenCliStatus() {
     if (!QFile::exists("/usr/bin/bw")) {
         return "not_installed";
     }
@@ -485,7 +485,7 @@ QString OmaBridge::getBitwardenCliStatus() {
     return "locked";
 }
 
-QString OmaBridge::unlockBitwarden(const QString &password) {
+QString FocusBridge::unlockBitwarden(const QString &password) {
     if (!QFile::exists("/usr/bin/bw")) {
         return "Bitwarden CLI (/usr/bin/bw) não encontrado.";
     }
@@ -506,7 +506,7 @@ QString OmaBridge::unlockBitwarden(const QString &password) {
     }
 }
 
-QString OmaBridge::loginBitwarden(const QString &email, const QString &password) {
+QString FocusBridge::loginBitwarden(const QString &email, const QString &password) {
     if (!QFile::exists("/usr/bin/bw")) {
         return "Bitwarden CLI (/usr/bin/bw) não encontrado.";
     }
@@ -527,7 +527,7 @@ QString OmaBridge::loginBitwarden(const QString &email, const QString &password)
     }
 }
 
-void OmaBridge::lockBitwarden() {
+void FocusBridge::lockBitwarden() {
     m_bwSession.clear();
     qunsetenv("BW_SESSION");
     QString path = QDir::homePath() + "/.config/focus/bw_session";
@@ -540,7 +540,7 @@ void OmaBridge::lockBitwarden() {
     emit bitwardenStatusChanged();
 }
 
-void OmaBridge::restoreSessionFromDisk() {
+void FocusBridge::restoreSessionFromDisk() {
     QString configDir = QDir::homePath() + "/.config/focus";
     QString path = configDir + "/bw_session";
     QFile file(path);
@@ -555,7 +555,7 @@ void OmaBridge::restoreSessionFromDisk() {
     }
 }
 
-void OmaBridge::saveSessionToDisk(const QString &session) {
+void FocusBridge::saveSessionToDisk(const QString &session) {
     m_bwSession = session;
     qputenv("BW_SESSION", session.toUtf8());
     QString configDir = QDir::homePath() + "/.config/focus";
@@ -570,7 +570,7 @@ void OmaBridge::saveSessionToDisk(const QString &session) {
     emit bitwardenStatusChanged();
 }
 
-void OmaBridge::loadChromeExtensions() {
+void FocusBridge::loadChromeExtensions() {
     QWebEngineProfile *profile = QWebEngineProfile::defaultProfile();
     if (!profile) return;
     QWebEngineExtensionManager *extMgr = profile->extensionManager();
@@ -599,7 +599,7 @@ void OmaBridge::loadChromeExtensions() {
     emit extensionsChanged();
 }
 
-void OmaBridge::loadExtensionFromPath(const QString &path) {
+void FocusBridge::loadExtensionFromPath(const QString &path) {
     QWebEngineProfile *profile = QWebEngineProfile::defaultProfile();
     if (!profile) return;
     QWebEngineExtensionManager *extMgr = profile->extensionManager();
@@ -610,7 +610,7 @@ void OmaBridge::loadExtensionFromPath(const QString &path) {
     }
 }
 
-QString OmaBridge::getLoadedExtensionsJson() const {
+QString FocusBridge::getLoadedExtensionsJson() const {
     QWebEngineProfile *profile = QWebEngineProfile::defaultProfile();
     if (!profile) return "[]";
     QWebEngineExtensionManager *extMgr = profile->extensionManager();
@@ -630,7 +630,7 @@ QString OmaBridge::getLoadedExtensionsJson() const {
     return QString::fromUtf8(QJsonDocument(arr).toJson(QJsonDocument::Compact));
 }
 
-QString OmaBridge::queryBitwardenLogins(const QString &url) {
+QString FocusBridge::queryBitwardenLogins(const QString &url) {
     if (url.isEmpty() || url == "about:blank") return "[]";
 
     QUrl parsed(url.startsWith("http") ? url : ("https://" + url));
@@ -690,7 +690,7 @@ QString OmaBridge::queryBitwardenLogins(const QString &url) {
     return QString::fromUtf8(QJsonDocument(resultArr).toJson(QJsonDocument::Compact));
 }
 
-QString OmaBridge::saveBitwardenCredential(const QString &url, const QString &username, const QString &password) {
+QString FocusBridge::saveBitwardenCredential(const QString &url, const QString &username, const QString &password) {
     if (url.isEmpty() || username.isEmpty() || password.isEmpty()) {
         return "Dados incompletos para salvar.";
     }
@@ -749,7 +749,7 @@ QString OmaBridge::saveBitwardenCredential(const QString &url, const QString &us
 
 class GlobalKeyFilter : public QObject {
 public:
-    explicit GlobalKeyFilter(OmaBridge *bridge, QObject *parent = nullptr)
+    explicit GlobalKeyFilter(FocusBridge *bridge, QObject *parent = nullptr)
         : QObject(parent), m_bridge(bridge) {}
 
 protected:
@@ -783,12 +783,12 @@ protected:
     }
 
 private:
-    OmaBridge *m_bridge;
+    FocusBridge *m_bridge;
 };
 
 extern "C" {
 
-int oma_run_gui(
+int focus_run_gui(
     int argc,
     char** argv,
     const char* qml_file_path,
@@ -846,7 +846,7 @@ int oma_run_gui(
     settings->setAttribute(QWebEngineSettings::Accelerated2dCanvasEnabled, true);
 
     // 4. Set up Bridge instance and initial data
-    OmaBridge *bridge = OmaBridge::instance();
+    FocusBridge *bridge = FocusBridge::instance();
     bridge->setCallbacks(callbacks);
     bridge->initThemeWatcher();
     bridge->loadChromeExtensions();
@@ -876,7 +876,7 @@ int oma_run_gui(
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreated,
                      &app, [url](QObject *obj, const QUrl &objUrl) {
         if (!obj && url == objUrl) {
-            std::cerr << "OmaBrowser: Failed to load QML root object from " << url.toString().toStdString() << std::endl;
+            std::cerr << "Focus: Failed to load QML root object from " << url.toString().toStdString() << std::endl;
             QCoreApplication::exit(-1);
         }
     }, Qt::QueuedConnection);
@@ -884,7 +884,7 @@ int oma_run_gui(
     engine.load(url);
 
     if (engine.rootObjects().isEmpty()) {
-        std::cerr << "OmaBrowser: Engine root objects empty on startup!" << std::endl;
+        std::cerr << "Focus: Engine root objects empty on startup!" << std::endl;
         return -1;
     }
 
