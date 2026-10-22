@@ -769,7 +769,6 @@ Item {
                                         target: tabRowRect
                                         anchors.horizontalCenter: undefined
                                         anchors.verticalCenter: undefined
-                                        anchors.fill: undefined
                                     }
                                     PropertyChanges {
                                         target: tabRowRect
