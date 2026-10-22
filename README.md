@@ -1,7 +1,7 @@
 # Focus 🌐
 
 > **Navegador minimalista, teclado-primeiro e ultrarrápido para o ecossistema Omarchy.**  
-> Construído em **Rust**, **Qt6 WebEngine (Chromium)** e com suporte a alternância para **Firefox / Zen Browser (Gecko)**. Inspirado na linguagem visual do **[Flea](https://github.com/thisisgm/flea)**.
+> Construído em **Rust**, **Qt6 WebEngine (Chromium)** e com suporte a alternância para **Firefox / Zen Browser (Gecko)**.
 
 ---
 
@@ -22,8 +22,6 @@
 * **Login na Conta Google & Sincronização**:
   * Sessões persistentes completas para Gmail, YouTube, Google Drive e login unificado da conta Google.
   * Importação e sincronização local contínua de favoritos e histórico direto do perfil do Google Chrome / Chromium (`~/.config/google-chrome` ou `~/.config/chromium`).
-* **Janela de Configurações Flutuante (Estilo Flea `SettingsPanel`)**:
-  * Design em duas colunas (trilho de seções à esquerda, controles suaves à direita).
   * 100% integrado com o tema ao vivo do Omarchy (`~/.local/state/omarchy/current/theme/colors.toml`).
 
 ---
