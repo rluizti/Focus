@@ -41,7 +41,7 @@ impl Default for ThemeInfo {
             red: "#c38b7b".to_string(),
             green: "#87a9b0".to_string(),
             blue: "#b59790".to_string(),
-            font_family: "omarchy, Inter, sans-serif".to_string(),
+            font_family: "Inter, 'Liberation Sans', sans-serif".to_string(),
             corner_radius: 8,
         }
     }

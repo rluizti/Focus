@@ -7,6 +7,8 @@ Item {
     anchors.fill: parent
     z: 999
 
+    signal requestBitwardenUnlock()
+
     readonly property int itemRadius: Theme.cornerRadius > 0 ? Math.max(2, Theme.cornerRadius - 2) : 0
 
     // Dimmed background backdrop
@@ -174,6 +176,7 @@ Item {
                             { id: "languages", label: "Idiomas", glyph: "type" },
                             { id: "sync", label: "Conta & Sync", glyph: "lock" },
                             { id: "passwords", label: "Senhas", glyph: "key" },
+                            { id: "extensions", label: "Extensões", glyph: "archive-out" },
                             { id: "appearance", label: "Aparência", glyph: "contrast" },
                             { id: "about", label: "Sobre", glyph: "keyboard" }
                         ]
@@ -941,7 +944,7 @@ Item {
                         // Card de Integração com o Bitwarden (Gerenciador de Chaves Padrão)
                         Rectangle {
                             width: parent.width
-                            height: 60
+                            height: 66
                             radius: root.itemRadius
                             color: (card.config && card.config.bitwarden_enabled) ? Theme.selection : Qt.rgba(1, 1, 1, 0.03)
                             border.color: (card.config && card.config.bitwarden_enabled) ? Theme.accent : Theme.border
@@ -968,17 +971,18 @@ Item {
                                 }
 
                                 Column {
-                                    width: parent.width - 200
+                                    width: parent.width - 270
                                     anchors.verticalCenter: parent.verticalCenter
                                     spacing: 3
 
                                     Row {
                                         spacing: 8
                                         Text {
-                                            text: "Bitwarden (Gerenciador de Chaves Padrão)"
+                                            text: "Bitwarden (Gerenciador Padrão)"
                                             color: Theme.foreground
                                             font.bold: true
                                             font.pixelSize: 13
+                                            font.family: Theme.fontFamily
                                         }
 
                                         Rectangle {
@@ -994,18 +998,42 @@ Item {
                                                 text: bridge.isBitwardenInstalled() ? "Instalado" : "Não achado"
                                                 font.pixelSize: 9
                                                 font.bold: true
+                                                font.family: Theme.fontFamily
                                                 color: bridge.isBitwardenInstalled() ? Theme.green : Theme.red
+                                                anchors.centerIn: parent
+                                            }
+                                        }
+
+                                        Rectangle {
+                                            height: 16
+                                            width: bridge.bitwardenUnlocked ? 82 : 68
+                                            radius: 8
+                                            color: bridge.bitwardenUnlocked ? Qt.rgba(0.2, 0.8, 0.4, 0.2) : Qt.rgba(0.8, 0.6, 0.2, 0.2)
+                                            border.color: bridge.bitwardenUnlocked ? Theme.green : Theme.accent
+                                            border.width: 1
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            visible: bridge.isBitwardenInstalled()
+
+                                            Text {
+                                                text: bridge.bitwardenUnlocked ? "✓ Desbloqueado" : "🔒 Bloqueado"
+                                                font.pixelSize: 9
+                                                font.bold: true
+                                                font.family: Theme.fontFamily
+                                                color: bridge.bitwardenUnlocked ? Theme.green : Theme.accent
                                                 anchors.centerIn: parent
                                             }
                                         }
                                     }
 
                                     Text {
-                                        text: (card.config && card.config.bitwarden_enabled)
-                                            ? "Ativo como gerenciador padrão. Atalho direto no lançador e integração via /usr/bin/bw e app desktop."
-                                            : "Ative para utilizar o Bitwarden como seu gerenciador principal de senhas e chaves."
+                                        text: bridge.bitwardenUnlocked
+                                            ? "Cofre ativo no Focus. Autopreenchimento e salvamento automático estilo Google funcionam nativamente."
+                                            : ((card.config && card.config.bitwarden_enabled)
+                                                ? "Ativo. Desbloqueie com sua Senha Mestra para preencher e salvar credenciais nas páginas."
+                                                : "Ative para utilizar o Bitwarden integrado como seu gerenciador padrão de senhas.")
                                         color: Theme.dimForeground
                                         font.pixelSize: 11
+                                        font.family: Theme.fontFamily
                                         elide: Text.ElideRight
                                         width: parent.width
                                     }
@@ -1014,6 +1042,41 @@ Item {
                                 Row {
                                     anchors.verticalCenter: parent.verticalCenter
                                     spacing: 8
+
+                                    // Botão Desbloquear / Bloquear
+                                    Rectangle {
+                                        width: 80
+                                        height: 26
+                                        radius: root.itemRadius
+                                        color: lockToggleMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(1, 1, 1, 0.06)
+                                        border.color: Theme.border
+                                        border.width: 1
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        visible: (card.config && card.config.bitwarden_enabled) && bridge.isBitwardenInstalled()
+
+                                        Text {
+                                            text: bridge.bitwardenUnlocked ? "Bloquear" : "Desbloquear"
+                                            color: bridge.bitwardenUnlocked ? Theme.dimForeground : Theme.accent
+                                            font.pixelSize: 10
+                                            font.bold: true
+                                            font.family: Theme.fontFamily
+                                            anchors.centerIn: parent
+                                        }
+
+                                        MouseArea {
+                                            id: lockToggleMouse
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: {
+                                                if (bridge.bitwardenUnlocked) {
+                                                    bridge.lockBitwarden();
+                                                } else {
+                                                    root.requestBitwardenUnlock();
+                                                }
+                                            }
+                                        }
+                                    }
 
                                     // Botão Abrir App Desktop
                                     Rectangle {
@@ -1068,6 +1131,9 @@ Item {
                                             onClicked: {
                                                 var cur = (card.config && card.config.bitwarden_enabled) ? true : false;
                                                 card.updateConfig("bitwarden_enabled", !cur);
+                                                if (!cur && !bridge.bitwardenUnlocked) {
+                                                    root.requestBitwardenUnlock();
+                                                }
                                             }
                                         }
                                     }
@@ -1379,6 +1445,200 @@ Item {
                             TextInput {
                                 id: copyHelper
                                 visible: false
+                            }
+                        }
+                    }
+                }
+
+                // Section: Extensões do Google Chrome
+                Item {
+                    id: paneExtensions
+                    anchors.fill: parent
+                    anchors.margins: 28
+                    visible: card.activeSection === "extensions"
+
+                    property var extensionsList: []
+
+                    function refreshExtensions() {
+                        try {
+                            paneExtensions.extensionsList = JSON.parse(bridge.extensionsJson) || [];
+                        } catch(e) {
+                            paneExtensions.extensionsList = [];
+                        }
+                    }
+
+                    Component.onCompleted: refreshExtensions()
+
+                    Connections {
+                        target: bridge
+                        function onExtensionsChanged() {
+                            paneExtensions.refreshExtensions();
+                        }
+                    }
+
+                    Column {
+                        spacing: 16
+                        width: parent.width
+                        height: parent.height
+
+                        Row {
+                            width: parent.width
+                            spacing: 12
+
+                            Column {
+                                width: parent.width - 150
+                                spacing: 4
+
+                                Text {
+                                    text: "Extensões do Google Chrome"
+                                    color: Theme.foreground
+                                    font.pixelSize: 18
+                                    font.bold: true
+                                    font.family: Theme.fontFamily
+                                }
+
+                                Text {
+                                    text: "Suporte nativo a extensões Chromium/Chrome (.config/google-chrome e .config/chromium)."
+                                    color: Theme.dimForeground
+                                    font.pixelSize: 12
+                                    font.family: Theme.fontFamily
+                                }
+                            }
+
+                            // Botão Recarregar
+                            Rectangle {
+                                width: 140
+                                height: 32
+                                radius: root.itemRadius
+                                color: reloadExtMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(1, 1, 1, 0.06)
+                                border.color: Theme.accent
+                                border.width: 1
+                                anchors.verticalCenter: parent.verticalCenter
+
+                                Row {
+                                    anchors.centerIn: parent
+                                    spacing: 6
+                                    Glyph { name: "archive-out"; size: 12; color: Theme.accent; anchors.verticalCenter: parent.verticalCenter }
+                                    Text {
+                                        text: "Sincronizar"
+                                        color: Theme.accent
+                                        font.pixelSize: 11
+                                        font.bold: true
+                                        font.family: Theme.fontFamily
+                                        anchors.verticalCenter: parent.verticalCenter
+                                    }
+                                }
+
+                                MouseArea {
+                                    id: reloadExtMouse
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: {
+                                        bridge.loadChromeExtensions();
+                                        paneExtensions.refreshExtensions();
+                                    }
+                                }
+                            }
+                        }
+
+                        Rectangle {
+                            width: parent.width
+                            height: 1
+                            color: Theme.border
+                        }
+
+                        // Lista de extensões
+                        ListView {
+                            width: parent.width
+                            height: parent.height - 80
+                            clip: true
+                            spacing: 8
+                            model: paneExtensions.extensionsList
+
+                            delegate: Rectangle {
+                                width: parent.width
+                                height: 60
+                                radius: root.itemRadius
+                                color: Qt.rgba(1, 1, 1, 0.03)
+                                border.color: Theme.border
+                                border.width: 1
+
+                                Row {
+                                    anchors.fill: parent
+                                    anchors.margins: 10
+                                    spacing: 12
+
+                                    Rectangle {
+                                        width: 38
+                                        height: 38
+                                        radius: root.itemRadius
+                                        color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.15)
+                                        anchors.verticalCenter: parent.verticalCenter
+
+                                        Glyph {
+                                            name: "archive-out"
+                                            size: 18
+                                            color: Theme.accent
+                                            anchors.centerIn: parent
+                                        }
+                                    }
+
+                                    Column {
+                                        width: parent.width - 130
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        spacing: 3
+
+                                        Row {
+                                            spacing: 8
+                                            Text {
+                                                text: modelData.name || modelData.id
+                                                color: Theme.foreground
+                                                font.bold: true
+                                                font.pixelSize: 13
+                                                font.family: Theme.fontFamily
+                                            }
+
+                                            Rectangle {
+                                                height: 16
+                                                width: 48
+                                                radius: 8
+                                                color: Qt.rgba(0.2, 0.8, 0.4, 0.15)
+                                                border.color: Theme.green
+                                                border.width: 1
+                                                anchors.verticalCenter: parent.verticalCenter
+
+                                                Text {
+                                                    text: "Ativa"
+                                                    font.pixelSize: 9
+                                                    font.bold: true
+                                                    font.family: Theme.fontFamily
+                                                    color: Theme.green
+                                                    anchors.centerIn: parent
+                                                }
+                                            }
+                                        }
+
+                                        Text {
+                                            text: modelData.description || modelData.path
+                                            color: Theme.dimForeground
+                                            font.pixelSize: 11
+                                            font.family: Theme.fontFamily
+                                            elide: Text.ElideRight
+                                            width: parent.width
+                                        }
+                                    }
+                                }
+                            }
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: "Nenhuma extensão do Chrome encontrada.\nAs extensões instaladas no Google Chrome e Chromium são carregadas automaticamente."
+                                color: Theme.dimForeground
+                                font.pixelSize: 12
+                                font.family: Theme.fontFamily
+                                horizontalAlignment: Text.AlignHCenter
+                                visible: paneExtensions.extensionsList.length === 0
                             }
                         }
                     }

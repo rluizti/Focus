@@ -220,10 +220,144 @@ Window {
                         runJavaScript(js);
                     }
 
+                    function injectAutofill() {
+                        var targetUrl = url ? url.toString() : "";
+                        if (!targetUrl || targetUrl.startsWith("about:") || targetUrl.startsWith("chrome:")) return;
+
+                        var credsJson = bridge.queryBitwardenLogins(targetUrl);
+                        var isUnlocked = bridge.bitwardenUnlocked ? "true" : "false";
+                        var isInstalled = bridge.isBitwardenInstalled() ? "true" : "false";
+
+                        var js = "(function() {\n" +
+                            "  var creds = " + credsJson + ";\n" +
+                            "  var isUnlocked = " + isUnlocked + ";\n" +
+                            "  var isInstalled = " + isInstalled + ";\n" +
+                            "  window.__focusCreds = creds;\n" +
+                            "  window.__focusBwUnlocked = isUnlocked;\n" +
+                            "  window.__focusBwInstalled = isInstalled;\n" +
+                            "\n" +
+                            "  function setupAutofill() {\n" +
+                            "    var passInputs = document.querySelectorAll('input[type=\"password\"]');\n" +
+                            "    passInputs.forEach(function(passInput) {\n" +
+                            "      if (passInput.__focusWatched) return;\n" +
+                            "      passInput.__focusWatched = true;\n" +
+                            "      var form = passInput.form || passInput.closest('form');\n" +
+                            "      var userInput = null;\n" +
+                            "      if (form) {\n" +
+                            "        userInput = form.querySelector('input[type=\"email\"], input[type=\"text\"][name*=\"user\" i], input[type=\"text\"][name*=\"login\" i], input[type=\"text\"][name*=\"email\" i], input[type=\"text\"][autocomplete*=\"username\" i], input[type=\"text\"]');\n" +
+                            "      }\n" +
+                            "      if (!userInput) {\n" +
+                            "        var container = passInput.parentElement ? passInput.parentElement.parentElement : null;\n" +
+                            "        if (container) userInput = container.querySelector('input[type=\"text\"], input[type=\"email\"]');\n" +
+                            "      }\n" +
+                            "      function showMenu(target) {\n" +
+                            "        var old = document.getElementById('focus-bw-popup');\n" +
+                            "        if (old) old.remove();\n" +
+                            "        var r = target.getBoundingClientRect();\n" +
+                            "        var pop = document.createElement('div');\n" +
+                            "        pop.id = 'focus-bw-popup';\n" +
+                            "        pop.style.cssText = 'position:fixed;top:' + (r.bottom + 4) + 'px;left:' + r.left + 'px;min-width:' + Math.max(220, r.width) + 'px;max-width:360px;background:#18181b;color:#f4f4f5;border:1px solid #3f3f46;border-radius:8px;box-shadow:0 10px 25px rgba(0,0,0,0.6);z-index:2147483647;font-family:Inter,sans-serif;font-size:12px;overflow:hidden;padding:4px 0;';\n" +
+                            "        var h = '';\n" +
+                            "        if (window.__focusCreds && window.__focusCreds.length > 0) {\n" +
+                            "          window.__focusCreds.forEach(function(c, i) {\n" +
+                            "            h += '<div class=\"f-item\" data-i=\"' + i + '\" style=\"display:flex;align-items:center;padding:8px 12px;cursor:pointer;gap:8px;\">' +\n" +
+                            "                 '<span style=\"font-size:14px;\">🔑</span>' +\n" +
+                            "                 '<div style=\"flex:1;overflow:hidden;\"><div style=\"font-weight:600;color:#fafafa;text-overflow:ellipsis;overflow:hidden;white-space:nowrap;\">' + (c.username || 'Conta') + '</div><div style=\"font-size:10px;color:#a1a1aa;\">•••••••• • ' + (c.name || 'Bitwarden') + '</div></div>' +\n" +
+                            "                 '<span style=\"font-size:9px;background:#27272a;padding:2px 5px;border-radius:4px;color:#a1a1aa;\">Preencher</span></div>';\n" +
+                            "          });\n" +
+                            "        } else if (!window.__focusBwUnlocked) {\n" +
+                            "          h = '<div class=\"f-unlock\" style=\"display:flex;align-items:center;padding:10px 12px;cursor:pointer;gap:8px;\"><span style=\"font-size:14px;\">🔒</span><div><div style=\"font-weight:600;color:#60a5fa;\">Desbloquear Bitwarden</div><div style=\"font-size:10px;color:#a1a1aa;\">Clique para autenticar e preencher</div></div></div>';\n" +
+                            "        } else {\n" +
+                            "          h = '<div style=\"padding:8px 12px;color:#a1a1aa;font-size:11px;\">Nenhuma senha salva no Bitwarden para este site.</div>';\n" +
+                            "        }\n" +
+                            "        pop.innerHTML = h;\n" +
+                            "        document.body.appendChild(pop);\n" +
+                            "        pop.querySelectorAll('.f-item').forEach(function(el) {\n" +
+                            "          el.onmouseenter = function() { el.style.background = '#27272a'; };\n" +
+                            "          el.onmouseleave = function() { el.style.background = 'transparent'; };\n" +
+                            "          el.onmousedown = function(e) {\n" +
+                            "            e.preventDefault();\n" +
+                            "            var c = window.__focusCreds[parseInt(el.getAttribute('data-i'))];\n" +
+                            "            if (c) {\n" +
+                            "              if (userInput) { userInput.value = c.username || ''; userInput.dispatchEvent(new Event('input', {bubbles:true})); userInput.dispatchEvent(new Event('change', {bubbles:true})); }\n" +
+                            "              if (passInput) { passInput.value = c.password || ''; passInput.dispatchEvent(new Event('input', {bubbles:true})); passInput.dispatchEvent(new Event('change', {bubbles:true})); }\n" +
+                            "            }\n" +
+                            "            pop.remove();\n" +
+                            "          };\n" +
+                            "        });\n" +
+                            "        var unBtn = pop.querySelector('.f-unlock');\n" +
+                            "        if (unBtn) {\n" +
+                            "          unBtn.onmouseenter = function() { unBtn.style.background = '#27272a'; };\n" +
+                            "          unBtn.onmouseleave = function() { unBtn.style.background = 'transparent'; };\n" +
+                            "          unBtn.onmousedown = function(e) {\n" +
+                            "            e.preventDefault();\n" +
+                            "            console.log('[FOCUS_BITWARDEN_UNLOCK]');\n" +
+                            "            pop.remove();\n" +
+                            "          };\n" +
+                            "        }\n" +
+                            "        function closeOut(ev) {\n" +
+                            "          if (!pop.contains(ev.target) && ev.target !== target) {\n" +
+                            "            pop.remove();\n" +
+                            "            document.removeEventListener('mousedown', closeOut);\n" +
+                            "          }\n" +
+                            "        }\n" +
+                            "        setTimeout(function() { document.addEventListener('mousedown', closeOut); }, 50);\n" +
+                            "      }\n" +
+                            "      passInput.addEventListener('focus', function(e) { showMenu(e.target); });\n" +
+                            "      if (userInput && !userInput.__focusWatched) {\n" +
+                            "        userInput.__focusWatched = true;\n" +
+                            "        userInput.addEventListener('focus', function(e) { showMenu(e.target); });\n" +
+                            "      }\n" +
+                            "      passInput.addEventListener('keydown', function(e) {\n" +
+                            "        if (e.key === 'Enter') {\n" +
+                            "          var u = userInput ? userInput.value : '';\n" +
+                            "          var p = passInput.value;\n" +
+                            "          if (u && p) console.log('[FOCUS_BITWARDEN_SAVE]:' + JSON.stringify({url: window.location.href, username: u, password: p}));\n" +
+                            "        }\n" +
+                            "      });\n" +
+                            "      if (form && !form.__focusSubmitWatched) {\n" +
+                            "        form.__focusSubmitWatched = true;\n" +
+                            "        form.addEventListener('submit', function() {\n" +
+                            "          var u = userInput ? userInput.value : '';\n" +
+                            "          var p = passInput.value;\n" +
+                            "          if (u && p) console.log('[FOCUS_BITWARDEN_SAVE]:' + JSON.stringify({url: window.location.href, username: u, password: p}));\n" +
+                            "        });\n" +
+                            "      }\n" +
+                            "    });\n" +
+                            "  }\n" +
+                            "  setupAutofill();\n" +
+                            "  if (!window.__focusFormTimer) window.__focusFormTimer = setInterval(setupAutofill, 2000);\n" +
+                            "})();";
+                        runJavaScript(js);
+                    }
+
+                    onJavaScriptConsoleMessage: function(level, message, lineNumber, sourceId) {
+                        if (message.indexOf("[FOCUS_BITWARDEN_UNLOCK]") === 0) {
+                            bitwardenModal.openModal(function() {
+                                webView.injectAutofill();
+                            });
+                        } else if (message.indexOf("[FOCUS_BITWARDEN_SAVE]:") === 0) {
+                            try {
+                                var raw = message.substring("[FOCUS_BITWARDEN_SAVE]:".length);
+                                var cred = JSON.parse(raw);
+                                if (cred && cred.username && cred.password) {
+                                    savePasswordPrompt.promptSave(cred.url, cred.username, cred.password);
+                                }
+                            } catch(e) {}
+                        }
+                    }
+
                     Connections {
                         target: Theme
                         function onAccentChanged() {
                             webView.injectSelectionStyle();
+                        }
+                    }
+
+                    Connections {
+                        target: bridge
+                        function onBitwardenStatusChanged() {
+                            webView.injectAutofill();
                         }
                     }
 
@@ -234,6 +368,7 @@ Window {
 
                         if (loadRequest.status === WebEngineView.LoadSucceededStatus) {
                             webView.injectSelectionStyle();
+                            webView.injectAutofill();
                         }
 
                         // Auto fallback bidirecional: Se falhou com www tenta sem www, se falhou sem www tenta com www
@@ -475,11 +610,24 @@ Window {
                 else if (action === "stop") ch.stop();
             }
         }
+
+        onRequestBitwardenUnlock: bitwardenModal.openModal()
     }
 
     // Floating Settings Modal (Estilo Flea SettingsPanel)
     SettingsModal {
         id: settingsModal
+        onRequestBitwardenUnlock: bitwardenModal.openModal()
+    }
+
+    // Bitwarden Master Password and Account Modal
+    BitwardenModal {
+        id: bitwardenModal
+    }
+
+    // Google Password Manager Style Save Password Bubble
+    SavePasswordPrompt {
+        id: savePasswordPrompt
     }
 
     // Omarchy-Themed Context Menu
@@ -541,7 +689,11 @@ Window {
     Shortcut {
         sequence: "Escape"
         onActivated: {
-            if (contextMenu.visible) {
+            if (bitwardenModal.visible) {
+                bitwardenModal.closeModal();
+            } else if (savePasswordPrompt.visible) {
+                savePasswordPrompt.dismiss();
+            } else if (contextMenu.visible) {
                 contextMenu.dismiss();
             } else if (window.devToolsOpen) {
                 window.devToolsOpen = false;

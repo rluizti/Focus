@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-find_package(Qt6 COMPONENTS Core Gui Quick WebEngineQuick REQUIRED)
+find_package(Qt6 COMPONENTS Core Gui Quick WebEngineQuick WebEngineCore REQUIRED)
 
 add_library(omabridge STATIC
     src/bridge/bridge.cpp
@@ -22,4 +22,5 @@ target_link_libraries(omabridge PUBLIC
     Qt6::Gui
     Qt6::Quick
     Qt6::WebEngineQuick
+    Qt6::WebEngineCore
 )

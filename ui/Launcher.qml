@@ -7,6 +7,8 @@ Item {
     anchors.fill: parent
     z: 500
 
+    signal requestBitwardenUnlock()
+
     // Backdrop overlay
     Rectangle {
         anchors.fill: parent
@@ -1120,10 +1122,10 @@ Item {
                     // Botão Bitwarden (visível se habilitado nas configurações)
                     Rectangle {
                         height: 26
-                        width: 95
+                        width: bridge.bitwardenUnlocked ? 95 : 105
                         radius: root.itemRadius
                         color: bitwardenMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(1, 1, 1, 0.04)
-                        border.color: Theme.accent
+                        border.color: bridge.bitwardenUnlocked ? Theme.green : Theme.accent
                         border.width: 1
                         anchors.verticalCenter: parent.verticalCenter
                         visible: {
@@ -1136,8 +1138,20 @@ Item {
                         Row {
                             anchors.centerIn: parent
                             spacing: 5
-                            Glyph { name: "shield"; size: 12; color: Theme.accent; anchors.verticalCenter: parent.verticalCenter }
-                            Text { text: "Bitwarden"; color: Theme.accent; font.pixelSize: 11; font.bold: true; anchors.verticalCenter: parent.verticalCenter }
+                            Glyph {
+                                name: "shield"
+                                size: 12
+                                color: bridge.bitwardenUnlocked ? Theme.green : Theme.accent
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+                            Text {
+                                text: bridge.bitwardenUnlocked ? "Bitwarden ✓" : "Bitwarden 🔒"
+                                color: bridge.bitwardenUnlocked ? Theme.green : Theme.accent
+                                font.pixelSize: 11
+                                font.bold: true
+                                font.family: Theme.fontFamily
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
                         }
 
                         MouseArea {
@@ -1145,7 +1159,13 @@ Item {
                             anchors.fill: parent
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
-                            onClicked: bridge.openBitwarden()
+                            onClicked: {
+                                if (!bridge.bitwardenUnlocked) {
+                                    root.requestBitwardenUnlock();
+                                } else {
+                                    bridge.openBitwarden();
+                                }
+                            }
                         }
                     }
 

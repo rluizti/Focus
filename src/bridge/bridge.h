@@ -30,6 +30,9 @@ class OmaBridge : public QObject {
     Q_PROPERTY(bool launcherVisible READ launcherVisible WRITE setLauncherVisible NOTIFY launcherVisibleChanged)
     Q_PROPERTY(bool settingsVisible READ settingsVisible WRITE setSettingsVisible NOTIFY settingsVisibleChanged)
     Q_PROPERTY(QString passwordsJson READ passwordsJson NOTIFY passwordsJsonChanged)
+    Q_PROPERTY(bool bitwardenUnlocked READ isBitwardenUnlocked NOTIFY bitwardenStatusChanged)
+    Q_PROPERTY(QString bitwardenCliStatus READ getBitwardenCliStatus NOTIFY bitwardenStatusChanged)
+    Q_PROPERTY(QString extensionsJson READ getLoadedExtensionsJson NOTIFY extensionsChanged)
 
 public:
     explicit OmaBridge(QObject *parent = nullptr);
@@ -87,6 +90,20 @@ public:
     Q_INVOKABLE bool isBitwardenInstalled() const;
     Q_INVOKABLE void openBitwarden();
     Q_INVOKABLE QString getBitwardenStatus();
+    Q_INVOKABLE bool isBitwardenUnlocked() const;
+    Q_INVOKABLE QString getBitwardenCliStatus();
+    Q_INVOKABLE QString unlockBitwarden(const QString &password);
+    Q_INVOKABLE QString loginBitwarden(const QString &email, const QString &password);
+    Q_INVOKABLE void lockBitwarden();
+    Q_INVOKABLE QString queryBitwardenLogins(const QString &url);
+    Q_INVOKABLE QString saveBitwardenCredential(const QString &url, const QString &username, const QString &password);
+
+    Q_INVOKABLE void loadChromeExtensions();
+    Q_INVOKABLE QString getLoadedExtensionsJson() const;
+    Q_INVOKABLE void loadExtensionFromPath(const QString &path);
+
+    void restoreSessionFromDisk();
+    void saveSessionToDisk(const QString &session);
 
     void initThemeWatcher();
     void reloadThemeFromDisk();
@@ -97,6 +114,8 @@ signals:
     void bookmarksJsonChanged();
     void historyJsonChanged();
     void passwordsJsonChanged();
+    void bitwardenStatusChanged();
+    void extensionsChanged();
     void currentEngineChanged();
     void currentUrlChanged();
     void pageTitleChanged();
@@ -131,6 +150,7 @@ private:
     qreal m_loadProgress = 0.0;
     bool m_launcherVisible = true;
     bool m_settingsVisible = false;
+    QString m_bwSession;
 };
 
 extern "C" {

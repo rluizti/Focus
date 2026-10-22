@@ -6,6 +6,8 @@
 #include <QQmlContext>
 #include <QQuickWindow>
 #include <QtWebEngineQuick/qtwebenginequickglobal.h>
+#include <QtWebEngineCore/QWebEngineExtensionManager>
+#include <QtWebEngineCore/QWebEngineExtensionInfo>
 #include <QWebEngineProfile>
 #include <QWebEngineSettings>
 #include <QStandardPaths>
@@ -27,6 +29,7 @@ OmaBridge *OmaBridge::s_instance = nullptr;
 OmaBridge::OmaBridge(QObject *parent) : QObject(parent) {
     s_instance = this;
     m_callbacks = {nullptr, nullptr, nullptr, nullptr};
+    restoreSessionFromDisk();
 }
 
 OmaBridge* OmaBridge::instance() {
@@ -421,7 +424,7 @@ void OmaBridge::reloadThemeFromDisk() {
     obj["red"] = map.value("red", "#c38b7b");
     obj["green"] = map.value("green", "#87a9b0");
     obj["blue"] = map.value("blue", "#b59790");
-    obj["font_family"] = "omarchy, Inter, sans-serif";
+    obj["font_family"] = "Inter, 'Liberation Sans', sans-serif";
     obj["corner_radius"] = rounding; // Follows Omarchy theme rounding (0 for sharp, 6/8/12 for rounded)
 
     QJsonDocument doc(obj);
@@ -456,15 +459,290 @@ void OmaBridge::openBitwarden() {
 }
 
 QString OmaBridge::getBitwardenStatus() {
+    return getBitwardenCliStatus();
+}
+
+bool OmaBridge::isBitwardenUnlocked() const {
+    return !m_bwSession.isEmpty();
+}
+
+QString OmaBridge::getBitwardenCliStatus() {
     if (!QFile::exists("/usr/bin/bw")) {
         return "not_installed";
     }
+    if (!m_bwSession.isEmpty()) {
+        return "unlocked";
+    }
     QProcess proc;
     proc.start("/usr/bin/bw", QStringList() << "status");
-    if (proc.waitForFinished(1200)) {
-        return QString::fromUtf8(proc.readAllStandardOutput()).trimmed();
+    if (proc.waitForFinished(1500)) {
+        QByteArray out = proc.readAllStandardOutput().trimmed();
+        QJsonDocument doc = QJsonDocument::fromJson(out);
+        if (doc.isObject()) {
+            return doc.object().value("status").toString("locked");
+        }
     }
-    return "timeout";
+    return "locked";
+}
+
+QString OmaBridge::unlockBitwarden(const QString &password) {
+    if (!QFile::exists("/usr/bin/bw")) {
+        return "Bitwarden CLI (/usr/bin/bw) não encontrado.";
+    }
+    QProcess proc;
+    proc.start("/usr/bin/bw", QStringList() << "unlock" << password << "--raw");
+    if (!proc.waitForFinished(8000)) {
+        return "Tempo limite excedido ao desbloquear o Bitwarden.";
+    }
+    if (proc.exitCode() == 0) {
+        QString session = QString::fromUtf8(proc.readAllStandardOutput()).trimmed();
+        saveSessionToDisk(session);
+        return QString();
+    } else {
+        QString err = QString::fromUtf8(proc.readAllStandardError()).trimmed();
+        if (err.isEmpty()) err = QString::fromUtf8(proc.readAllStandardOutput()).trimmed();
+        if (err.isEmpty()) err = "Senha mestra incorreta.";
+        return err;
+    }
+}
+
+QString OmaBridge::loginBitwarden(const QString &email, const QString &password) {
+    if (!QFile::exists("/usr/bin/bw")) {
+        return "Bitwarden CLI (/usr/bin/bw) não encontrado.";
+    }
+    QProcess proc;
+    proc.start("/usr/bin/bw", QStringList() << "login" << email << password << "--raw");
+    if (!proc.waitForFinished(12000)) {
+        return "Tempo limite excedido ao conectar ao Bitwarden.";
+    }
+    if (proc.exitCode() == 0) {
+        QString session = QString::fromUtf8(proc.readAllStandardOutput()).trimmed();
+        saveSessionToDisk(session);
+        return QString();
+    } else {
+        QString err = QString::fromUtf8(proc.readAllStandardError()).trimmed();
+        if (err.isEmpty()) err = QString::fromUtf8(proc.readAllStandardOutput()).trimmed();
+        if (err.isEmpty()) err = "Falha ao autenticar no Bitwarden.";
+        return err;
+    }
+}
+
+void OmaBridge::lockBitwarden() {
+    m_bwSession.clear();
+    qunsetenv("BW_SESSION");
+    QString path = QDir::homePath() + "/.config/focus/bw_session";
+    QFile::remove(path);
+    if (QFile::exists("/usr/bin/bw")) {
+        QProcess proc;
+        proc.start("/usr/bin/bw", QStringList() << "lock");
+        proc.waitForFinished(1500);
+    }
+    emit bitwardenStatusChanged();
+}
+
+void OmaBridge::restoreSessionFromDisk() {
+    QString configDir = QDir::homePath() + "/.config/focus";
+    QString path = configDir + "/bw_session";
+    QFile file(path);
+    if (file.exists() && file.open(QIODevice::ReadOnly)) {
+        QString s = QString::fromUtf8(file.readAll()).trimmed();
+        file.close();
+        if (!s.isEmpty()) {
+            m_bwSession = s;
+            qputenv("BW_SESSION", s.toUtf8());
+            emit bitwardenStatusChanged();
+        }
+    }
+}
+
+void OmaBridge::saveSessionToDisk(const QString &session) {
+    m_bwSession = session;
+    qputenv("BW_SESSION", session.toUtf8());
+    QString configDir = QDir::homePath() + "/.config/focus";
+    QDir().mkpath(configDir);
+    QString path = configDir + "/bw_session";
+    QFile file(path);
+    if (file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        file.setPermissions(QFile::ReadOwner | QFile::WriteOwner);
+        file.write(session.toUtf8());
+        file.close();
+    }
+    emit bitwardenStatusChanged();
+}
+
+void OmaBridge::loadChromeExtensions() {
+    QWebEngineProfile *profile = QWebEngineProfile::defaultProfile();
+    if (!profile) return;
+    QWebEngineExtensionManager *extMgr = profile->extensionManager();
+    if (!extMgr) return;
+
+    QStringList searchRoots;
+    searchRoots << QDir::homePath() + "/.config/google-chrome/Default/Extensions"
+                << QDir::homePath() + "/.config/chromium/Default/Extensions"
+                << QDir::homePath() + "/.config/focus/extensions";
+
+    for (const QString &root : searchRoots) {
+        QDir dir(root);
+        if (!dir.exists()) continue;
+        QStringList idDirs = dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
+        for (const QString &idDirName : idDirs) {
+            QDir idDir(dir.filePath(idDirName));
+            QStringList versionDirs = idDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
+            for (const QString &ver : versionDirs) {
+                QString extPath = idDir.filePath(ver);
+                if (QFile::exists(extPath + "/manifest.json")) {
+                    extMgr->loadExtension(extPath);
+                }
+            }
+        }
+    }
+    emit extensionsChanged();
+}
+
+void OmaBridge::loadExtensionFromPath(const QString &path) {
+    QWebEngineProfile *profile = QWebEngineProfile::defaultProfile();
+    if (!profile) return;
+    QWebEngineExtensionManager *extMgr = profile->extensionManager();
+    if (!extMgr) return;
+    if (QFile::exists(path + "/manifest.json")) {
+        extMgr->loadExtension(path);
+        emit extensionsChanged();
+    }
+}
+
+QString OmaBridge::getLoadedExtensionsJson() const {
+    QWebEngineProfile *profile = QWebEngineProfile::defaultProfile();
+    if (!profile) return "[]";
+    QWebEngineExtensionManager *extMgr = profile->extensionManager();
+    if (!extMgr) return "[]";
+
+    QJsonArray arr;
+    for (const QWebEngineExtensionInfo &ext : extMgr->extensions()) {
+        QJsonObject obj;
+        obj["id"] = ext.id();
+        obj["name"] = ext.name();
+        obj["description"] = ext.description();
+        obj["path"] = ext.path();
+        obj["isEnabled"] = ext.isEnabled();
+        obj["isLoaded"] = ext.isLoaded();
+        arr.append(obj);
+    }
+    return QString::fromUtf8(QJsonDocument(arr).toJson(QJsonDocument::Compact));
+}
+
+QString OmaBridge::queryBitwardenLogins(const QString &url) {
+    if (url.isEmpty() || url == "about:blank") return "[]";
+
+    QUrl parsed(url.startsWith("http") ? url : ("https://" + url));
+    QString domain = parsed.host();
+
+    QJsonArray resultArr;
+
+    if (!m_bwSession.isEmpty() && QFile::exists("/usr/bin/bw")) {
+        QProcess proc;
+        proc.start("/usr/bin/bw", QStringList() << "list" << "items" << "--url" << url << "--session" << m_bwSession);
+        if (proc.waitForFinished(3000) && proc.exitCode() == 0) {
+            QByteArray out = proc.readAllStandardOutput().trimmed();
+            QJsonDocument doc = QJsonDocument::fromJson(out);
+            if (doc.isArray()) {
+                for (const QJsonValue &v : doc.array()) {
+                    QJsonObject item = v.toObject();
+                    QJsonObject login = item.value("login").toObject();
+                    QString user = login.value("username").toString();
+                    QString pass = login.value("password").toString();
+                    if (!user.isEmpty() || !pass.isEmpty()) {
+                        QJsonObject cred;
+                        cred["source"] = "bitwarden";
+                        cred["name"] = item.value("name").toString(domain);
+                        cred["username"] = user;
+                        cred["password"] = pass;
+                        resultArr.append(cred);
+                    }
+                }
+            }
+        }
+    }
+
+    // Fallback or complement with local passwords if domain matches
+    QString localPath = QDir::homePath() + "/.config/focus/passwords.json";
+    QFile localFile(localPath);
+    if (localFile.open(QIODevice::ReadOnly)) {
+        QJsonDocument localDoc = QJsonDocument::fromJson(localFile.readAll());
+        localFile.close();
+        if (localDoc.isArray()) {
+            for (const QJsonValue &v : localDoc.array()) {
+                QJsonObject item = v.toObject();
+                QString d = item.value("domain").toString();
+                QString u = item.value("url").toString();
+                if ((!domain.isEmpty() && (d.contains(domain, Qt::CaseInsensitive) || domain.contains(d, Qt::CaseInsensitive))) ||
+                    (!u.isEmpty() && url.contains(u, Qt::CaseInsensitive))) {
+                    QJsonObject cred;
+                    cred["source"] = "local";
+                    cred["name"] = d.isEmpty() ? domain : d;
+                    cred["username"] = item.value("username").toString();
+                    cred["password"] = item.value("password").toString();
+                    resultArr.append(cred);
+                }
+            }
+        }
+    }
+
+    return QString::fromUtf8(QJsonDocument(resultArr).toJson(QJsonDocument::Compact));
+}
+
+QString OmaBridge::saveBitwardenCredential(const QString &url, const QString &username, const QString &password) {
+    if (url.isEmpty() || username.isEmpty() || password.isEmpty()) {
+        return "Dados incompletos para salvar.";
+    }
+
+    // Always also persist to local vault for immediate offline availability
+    saveCredential(url, username, password);
+
+    if (m_bwSession.isEmpty() || !QFile::exists("/usr/bin/bw")) {
+        return "ok"; // Saved locally
+    }
+
+    QUrl parsed(url.startsWith("http") ? url : ("https://" + url));
+    QString domain = parsed.host();
+    if (domain.isEmpty()) domain = url;
+
+    QJsonObject uriObj;
+    uriObj["uri"] = url;
+    uriObj["match"] = QJsonValue::Null;
+    QJsonArray urisArr;
+    urisArr.append(uriObj);
+
+    QJsonObject loginObj;
+    loginObj["username"] = username;
+    loginObj["password"] = password;
+    loginObj["uris"] = urisArr;
+
+    QJsonObject itemObj;
+    itemObj["type"] = 1; // 1 = Login
+    itemObj["name"] = domain;
+    itemObj["notes"] = "Salvo via Focus Browser";
+    itemObj["favorite"] = false;
+    itemObj["fields"] = QJsonArray();
+    itemObj["login"] = loginObj;
+
+    QJsonDocument doc(itemObj);
+    QByteArray base64Json = doc.toJson(QJsonDocument::Compact).toBase64();
+
+    QProcess proc;
+    proc.start("/usr/bin/bw", QStringList() << "create" << "item" << QString::fromUtf8(base64Json) << "--session" << m_bwSession);
+    if (!proc.waitForFinished(6000)) {
+        return "Tempo limite ao salvar no cofre Bitwarden.";
+    }
+
+    if (proc.exitCode() == 0) {
+        // Sync asynchronously so UI doesn't stall
+        QProcess::startDetached("/usr/bin/bw", QStringList() << "sync" << "--session" << m_bwSession);
+        return "ok";
+    } else {
+        QString err = QString::fromUtf8(proc.readAllStandardError()).trimmed();
+        if (err.isEmpty()) err = QString::fromUtf8(proc.readAllStandardOutput()).trimmed();
+        return err.isEmpty() ? "Erro ao salvar no Bitwarden." : err;
+    }
 }
 
 #include <QKeyEvent>
@@ -523,6 +801,7 @@ int oma_run_gui(
     // 1. Initialize QtWebEngine before QGuiApplication
     qputenv("QT_ENABLE_HIGHDPI_SCALING", "1");
     qputenv("QML_ENABLE_DISK_CACHE", "1");
+    qputenv("QTWEBENGINE_CHROMIUM_FLAGS", "--enable-extensions --enable-features=ExtensionManifestV3");
     QtWebEngineQuick::initialize();
 
     // 2. Initialize QGuiApplication
@@ -531,7 +810,7 @@ int oma_run_gui(
     app.setOrganizationName("Omarchy");
     app.setOrganizationDomain("omarchy.org");
 
-    QFont appFont("omarchy");
+    QFont appFont("Inter");
     appFont.setStyleHint(QFont::SansSerif);
     app.setFont(appFont);
 
@@ -570,6 +849,7 @@ int oma_run_gui(
     OmaBridge *bridge = OmaBridge::instance();
     bridge->setCallbacks(callbacks);
     bridge->initThemeWatcher();
+    bridge->loadChromeExtensions();
 
     // Global Key Filter: intercept Space/Alt+Space across entire app/WebEngine
     GlobalKeyFilter *keyFilter = new GlobalKeyFilter(bridge, &app);

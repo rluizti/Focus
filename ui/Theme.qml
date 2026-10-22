@@ -95,6 +95,8 @@ Item {
         return (root.data && root.data.mode === "dark" && root.data.dim_foreground) ? root.data.dim_foreground : "#8f8a8e";
     }
 
+    readonly property color muted: dimForeground
+
     readonly property color accent: (root.data && root.data.accent) ? root.data.accent : (isLightMode ? "#2f6feb" : "#b59790")
 
     readonly property color border: {
@@ -120,7 +122,7 @@ Item {
     readonly property color red: root.data.red || "#c38b7b"
     readonly property color green: root.data.green || "#87a9b0"
     readonly property color blue: root.data.blue || "#b59790"
-    readonly property string fontFamily: "omarchy, Inter, sans-serif"
+    readonly property string fontFamily: "Inter, 'Liberation Sans', sans-serif"
     
     // Follows Omarchy theme rounding (0 for sharp themes, 6/8/12 for rounded themes)
     readonly property int cornerRadius: (root.data.corner_radius !== undefined && root.data.corner_radius !== null) ? root.data.corner_radius : 8
