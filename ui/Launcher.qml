@@ -158,11 +158,8 @@ Item {
                         }
 
                         Keys.onEscapePressed: {
-                            if (root.isExpanded) {
-                                root.isExpanded = false;
-                            } else {
-                                bridge.launcherVisible = false;
-                            }
+                            root.isExpanded = false;
+                            bridge.launcherVisible = false;
                         }
 
                         Component.onCompleted: {
@@ -208,6 +205,28 @@ Item {
                 height: 94
                 visible: root.isExpanded && inputQuery.text.trim().length === 0
                 clip: true
+
+                DropArea {
+                    id: pinnedDropArea
+                    anchors.fill: parent
+                    keys: ["tab-item"]
+                    onDropped: function(drop) {
+                        if (drop.source && drop.source.tabUrl) {
+                            root.pinTab(drop.source.tabTitle, drop.source.tabUrl);
+                            drop.accept();
+                        }
+                    }
+                }
+
+                Rectangle {
+                    anchors.fill: parent
+                    anchors.margins: 4
+                    radius: root.itemRadius
+                    color: pinnedDropArea.containsDrag ? Qt.rgba(1, 1, 1, 0.06) : "transparent"
+                    border.color: pinnedDropArea.containsDrag ? Theme.accent : "transparent"
+                    border.width: 1
+                    visible: pinnedDropArea.containsDrag
+                }
 
                 Column {
                     anchors.fill: parent
@@ -464,62 +483,124 @@ Item {
                         clip: true
                         model: root.tabsModel
 
-                        delegate: Rectangle {
+                        delegate: Item {
+                            id: tabDelegate
                             width: tabsList.width
                             height: 30
-                            radius: root.itemRadius
                             visible: model.workspace === root.activeWorkspace
-                            color: root.activeTabIndex === index ? Theme.selection : (tabRowMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.04) : "transparent")
-                            border.color: root.activeTabIndex === index ? Theme.accent : "transparent"
-                            border.width: 1
 
-                            MouseArea {
-                                id: tabRowMouse
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: {
-                                    root.switchTab(index);
-                                    bridge.launcherVisible = false;
-                                }
-                            }
+                            property string tabTitle: model.title || model.url || "Nova Aba"
+                            property string tabUrl: model.url || ""
 
-                            Row {
-                                anchors.verticalCenter: parent.verticalCenter
-                                anchors.left: parent.left
-                                anchors.right: parent.right
-                                anchors.leftMargin: 10
-                                anchors.rightMargin: 10
-                                spacing: 8
+                            Rectangle {
+                                id: tabRowRect
+                                width: parent.width
+                                height: parent.height
+                                radius: root.itemRadius
+                                color: root.activeTabIndex === index ? Theme.selection : (tabRowMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.04) : "transparent")
+                                border.color: root.activeTabIndex === index ? Theme.accent : "transparent"
+                                border.width: 1
 
-                                Glyph {
-                                    name: "file"
-                                    size: 12
-                                    color: Theme.dimForeground
-                                    anchors.verticalCenter: parent.verticalCenter
-                                }
+                                Drag.active: tabRowMouse.drag.active
+                                Drag.source: tabDelegate
+                                Drag.hotSpot.x: width / 2
+                                Drag.hotSpot.y: height / 2
+                                Drag.keys: ["tab-item"]
 
-                                Text {
-                                    text: model.title ? model.title : (model.url ? model.url : "Nova Aba Vazia")
-                                    color: Theme.foreground
-                                    font.pixelSize: 12
-                                    font.bold: root.activeTabIndex === index
-                                    elide: Text.ElideRight
-                                    width: parent.width - 45
-                                    anchors.verticalCenter: parent.verticalCenter
+                                states: State {
+                                    when: tabRowMouse.drag.active
+                                    ParentChange { target: tabRowRect; parent: launcherCard }
+                                    AnchorChanges {
+                                        target: tabRowRect
+                                        anchors.horizontalCenter: undefined
+                                        anchors.verticalCenter: undefined
+                                        anchors.fill: undefined
+                                    }
+                                    PropertyChanges {
+                                        target: tabRowRect
+                                        opacity: 0.9
+                                        z: 9999
+                                        border.color: Theme.accent
+                                        border.width: 2
+                                        color: Theme.surface
+                                    }
                                 }
 
-                                // Fechar Aba
-                                Text {
-                                    text: "✕"
-                                    color: Theme.dimForeground
-                                    font.pixelSize: 11
-                                    anchors.verticalCenter: parent.verticalCenter
+                                MouseArea {
+                                    id: tabRowMouse
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    drag.target: tabRowRect
+                                    drag.axis: Drag.XAndYAxis
+                                    onClicked: {
+                                        root.switchTab(index);
+                                    }
+                                }
 
-                                    MouseArea {
-                                        anchors.fill: parent
-                                        cursorShape: Qt.PointingHandCursor
-                                        onClicked: root.closeTab(index)
+                                Row {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    anchors.left: parent.left
+                                    anchors.right: parent.right
+                                    anchors.leftMargin: 8
+                                    anchors.rightMargin: 8
+                                    spacing: 6
+
+                                    // Botão de Pinar na frente da aba
+                                    Rectangle {
+                                        width: 22
+                                        height: 22
+                                        radius: root.itemRadius
+                                        color: pinMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+                                        anchors.verticalCenter: parent.verticalCenter
+
+                                        Glyph {
+                                            name: "tag"
+                                            size: 11
+                                            color: root.isTabPinned(model.url) ? Theme.accent : (pinMouse.containsMouse ? Theme.foreground : Theme.dimForeground)
+                                            anchors.centerIn: parent
+                                        }
+
+                                        MouseArea {
+                                            id: pinMouse
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: {
+                                                root.togglePinTab(model.title, model.url);
+                                            }
+                                        }
+                                    }
+
+                                    Glyph {
+                                        name: "file"
+                                        size: 12
+                                        color: Theme.dimForeground
+                                        anchors.verticalCenter: parent.verticalCenter
+                                    }
+
+                                    Text {
+                                        text: model.title ? model.title : (model.url ? model.url : "Nova Aba Vazia")
+                                        color: Theme.foreground
+                                        font.pixelSize: 12
+                                        font.bold: root.activeTabIndex === index
+                                        elide: Text.ElideRight
+                                        width: parent.width - 75
+                                        anchors.verticalCenter: parent.verticalCenter
+                                    }
+
+                                    // Fechar Aba
+                                    Text {
+                                        text: "✕"
+                                        color: Theme.dimForeground
+                                        font.pixelSize: 11
+                                        anchors.verticalCenter: parent.verticalCenter
+
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: root.closeTab(index)
+                                        }
                                     }
                                 }
                             }
@@ -758,9 +839,9 @@ Item {
 
     function createNewTab(url) {
         newTabRequested(url, root.activeWorkspace);
-        bridge.launcherVisible = false;
-        root.isExpanded = false;
+        bridge.launcherVisible = true;
         inputQuery.text = "";
+        inputQuery.forceActiveFocus();
     }
 
     function switchTab(index) {
@@ -769,6 +850,59 @@ Item {
 
     function closeTab(index) {
         closeTabRequested(index);
+    }
+
+    function isTabPinned(url) {
+        if (!url || url.length === 0) return false;
+        for (var i = 0; i < root.pinnedRow1.length; i++) {
+            if (root.pinnedRow1[i].url === url) return true;
+        }
+        for (var j = 0; j < root.pinnedRow2.length; j++) {
+            if (root.pinnedRow2[j].url === url) return true;
+        }
+        return false;
+    }
+
+    function pinTab(title, url) {
+        if (!url || url === "" || url === "about:blank") return;
+        var r1 = root.pinnedRow1.slice();
+        var r2 = root.pinnedRow2.slice();
+
+        // Check if already pinned
+        for (var i = 0; i < r1.length; i++) {
+            if (r1[i].url === url) return;
+        }
+        for (var j = 0; j < r2.length; j++) {
+            if (r2[j].url === url) return;
+        }
+
+        var label = title || url.replace(/^https?:\/\/(www\.)?/, "").split("/")[0];
+        if (label.length > 10) label = label.substring(0, 9) + "…";
+        var item = { name: label, url: url, glyph: "globe" };
+
+        if (r1.length < 6) {
+            r1.push(item);
+            root.pinnedRow1 = r1;
+        } else {
+            r2.unshift(item);
+            if (r2.length > 6) r2.pop();
+            root.pinnedRow2 = r2;
+        }
+    }
+
+    function unpinTab(url) {
+        var r1 = root.pinnedRow1.filter(function(it) { return it.url !== url; });
+        var r2 = root.pinnedRow2.filter(function(it) { return it.url !== url; });
+        root.pinnedRow1 = r1;
+        root.pinnedRow2 = r2;
+    }
+
+    function togglePinTab(title, url) {
+        if (isTabPinned(url)) {
+            unpinTab(url);
+        } else {
+            pinTab(title, url);
+        }
     }
 
     function filterResults(query) {

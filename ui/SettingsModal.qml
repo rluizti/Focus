@@ -7,6 +7,8 @@ Item {
     anchors.fill: parent
     z: 999
 
+    readonly property int itemRadius: Theme.cornerRadius > 0 ? Math.max(2, Theme.cornerRadius - 2) : 0
+
     // Dimmed background backdrop
     Rectangle {
         anchors.fill: parent
@@ -26,22 +28,23 @@ Item {
     // Modal Card
     Rectangle {
         id: card
-        width: 680
-        height: 500
+        width: Math.min(740, parent.width - 48)
+        height: Math.min(520, parent.height - 48)
         anchors.centerIn: parent
         color: Theme.surface
         radius: Theme.cornerRadius
-        border.color: Theme.border
-        border.width: 1
+        border.color: Theme.activeBorder
+        border.width: Theme.borderSize
+        clip: true
 
-        scale: root.visible ? 1.0 : 0.95
+        scale: root.visible ? 1.0 : 0.96
         opacity: root.visible ? 1.0 : 0.0
 
         Behavior on scale {
-            NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
+            NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
         }
         Behavior on opacity {
-            NumberAnimation { duration: 180 }
+            NumberAnimation { duration: 160 }
         }
 
         // Prevent clicks inside card from closing modal
@@ -61,7 +64,7 @@ Item {
                 return {
                     default_engine: "chromium",
                     search_engine: "google",
-                    home_url: "https://www.google.com",
+                    home_url: "",
                     hardware_acceleration: true,
                     dark_mode: true,
                     zoom_level: 1.0
@@ -81,18 +84,9 @@ Item {
 
             // Left Rail
             Rectangle {
-                width: 200
+                width: 210
                 height: parent.height
-                color: Theme.surfaceVariant
-                radius: Theme.cornerRadius
-
-                // Mask right corners
-                Rectangle {
-                    width: 10
-                    height: parent.height
-                    anchors.right: parent.right
-                    color: Theme.surfaceVariant
-                }
+                color: Qt.rgba(0, 0, 0, 0.15)
 
                 Rectangle {
                     width: 1
@@ -108,14 +102,15 @@ Item {
 
                     // App Title
                     Row {
-                        spacing: 8
-                        bottomPadding: 16
+                        spacing: 10
+                        bottomPadding: 14
 
                         Rectangle {
-                            width: 28
-                            height: 28
-                            radius: 0
+                            width: 30
+                            height: 30
+                            radius: root.itemRadius
                             color: Theme.accent
+                            anchors.verticalCenter: parent.verticalCenter
 
                             Text {
                                 text: "Ω"
@@ -127,6 +122,7 @@ Item {
                         }
 
                         Column {
+                            anchors.verticalCenter: parent.verticalCenter
                             Text {
                                 text: "Focus"
                                 color: Theme.foreground
@@ -136,7 +132,7 @@ Item {
                             Text {
                                 text: "Configurações"
                                 color: Theme.dimForeground
-                                font.pixelSize: Theme.fontCaption
+                                font.pixelSize: 11
                             }
                         }
                     }
@@ -144,17 +140,17 @@ Item {
                     // Navigation items
                     Repeater {
                         model: [
-                            { id: "engine", label: "Motor Web", icon: "🌐" },
-                            { id: "search", label: "Pesquisa", icon: "🔍" },
-                            { id: "sync", label: "Conta & Sync", icon: "🔄" },
-                            { id: "appearance", label: "Aparência", icon: "🎨" },
-                            { id: "about", label: "Sobre", icon: "ℹ️" }
+                            { id: "engine", label: "Motor Web", glyph: "globe" },
+                            { id: "search", label: "Pesquisa", glyph: "search" },
+                            { id: "sync", label: "Conta & Sync", glyph: "lock" },
+                            { id: "appearance", label: "Aparência", glyph: "contrast" },
+                            { id: "about", label: "Sobre", glyph: "keyboard" }
                         ]
 
                         Rectangle {
-                            width: 172
-                            height: 38
-                            radius: 0
+                            width: parent.width
+                            height: 36
+                            radius: root.itemRadius
                             color: card.activeSection === modelData.id ? Theme.selection : (itemMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.05) : "transparent")
                             border.color: card.activeSection === modelData.id ? Theme.accent : "transparent"
                             border.width: 1
@@ -170,12 +166,13 @@ Item {
                             Row {
                                 anchors.verticalCenter: parent.verticalCenter
                                 anchors.left: parent.left
-                                anchors.leftMargin: 12
+                                anchors.leftMargin: 10
                                 spacing: 10
 
-                                Text {
-                                    text: modelData.icon
-                                    font.pixelSize: 14
+                                Glyph {
+                                    name: modelData.glyph
+                                    size: 14
+                                    color: card.activeSection === modelData.id ? Theme.accent : Theme.dimForeground
                                     anchors.verticalCenter: parent.verticalCenter
                                 }
 
@@ -194,26 +191,28 @@ Item {
 
             // Right Pane Content
             Rectangle {
-                width: parent.width - 200
+                width: parent.width - 210
                 height: parent.height
                 color: "transparent"
 
                 // Close Button Top Right
                 Rectangle {
-                    width: 30
-                    height: 30
-                    radius: 0
+                    width: 28
+                    height: 28
+                    radius: root.itemRadius
                     anchors.top: parent.top
                     anchors.right: parent.right
                     anchors.margins: 14
-                    color: closeMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.1) : "transparent"
+                    color: closeMouse.containsMouse ? Theme.selection : "transparent"
+                    border.color: closeMouse.containsMouse ? Theme.accent : "transparent"
+                    border.width: 1
                     z: 10
 
                     Text {
                         text: "✕"
-                        color: Theme.dimForeground
+                        color: Theme.foreground
                         anchors.centerIn: parent
-                        font.pixelSize: 14
+                        font.pixelSize: 12
                     }
 
                     MouseArea {
@@ -233,30 +232,30 @@ Item {
                     visible: card.activeSection === "engine"
 
                     Column {
-                        spacing: 20
+                        spacing: 16
                         width: parent.width
 
                         Text {
-                            text: "Alternância de Motor Web"
+                            text: "Motor de Renderização"
                             color: Theme.foreground
                             font.pixelSize: 18
                             font.bold: true
                         }
 
                         Text {
-                            text: "Escolha qual motor processa as páginas. O Chromium roda nativo embutido e o Firefox/Zen roda integrado com perfil isolado."
+                            text: "O Focus utiliza QtWebEngine (Blink/V8) embutido nativamente sem bordas ou poluição visual. Você também pode integrar com o Gecko do Firefox/Zen."
                             color: Theme.dimForeground
                             font.pixelSize: Theme.fontBody
                             width: parent.width
                             wrapMode: Text.WordWrap
                         }
 
-                        // Engine Option 1: Chromium
+                        // Engine Option 1: Chromium (Blink)
                         Rectangle {
                             width: parent.width
                             height: 68
-                            radius: 0
-                            color: bridge.currentEngine === "chromium" ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(1, 1, 1, 0.02)
+                            radius: root.itemRadius
+                            color: bridge.currentEngine === "chromium" ? Theme.selection : Qt.rgba(1, 1, 1, 0.02)
                             border.color: bridge.currentEngine === "chromium" ? Theme.accent : Theme.border
                             border.width: bridge.currentEngine === "chromium" ? 2 : 1
 
@@ -275,7 +274,12 @@ Item {
                                 anchors.leftMargin: 16
                                 spacing: 14
 
-                                Text { text: "⚡"; font.pixelSize: 24; anchors.verticalCenter: parent.verticalCenter }
+                                Glyph {
+                                    name: "globe"
+                                    size: 22
+                                    color: Theme.accent
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
 
                                 Column {
                                     spacing: 3
@@ -298,8 +302,8 @@ Item {
                         Rectangle {
                             width: parent.width
                             height: 68
-                            radius: 0
-                            color: bridge.currentEngine === "firefox" ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(1, 1, 1, 0.02)
+                            radius: root.itemRadius
+                            color: bridge.currentEngine === "firefox" ? Theme.selection : Qt.rgba(1, 1, 1, 0.02)
                             border.color: bridge.currentEngine === "firefox" ? Theme.accent : Theme.border
                             border.width: bridge.currentEngine === "firefox" ? 2 : 1
 
@@ -318,7 +322,12 @@ Item {
                                 anchors.leftMargin: 16
                                 spacing: 14
 
-                                Text { text: "🦊"; font.pixelSize: 24; anchors.verticalCenter: parent.verticalCenter }
+                                Glyph {
+                                    name: "terminal"
+                                    size: 22
+                                    color: Theme.foreground
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
 
                                 Column {
                                     spacing: 3
@@ -329,7 +338,7 @@ Item {
                                         font.bold: true
                                     }
                                     Text {
-                                        text: "Alterna páginas para a instância Gecko/Zen Browser com máxima privacidade."
+                                        text: "Alterna páginas para a instância Gecko/Zen com máxima privacidade."
                                         color: Theme.dimForeground
                                         font.pixelSize: Theme.fontCaption
                                     }
@@ -347,7 +356,7 @@ Item {
                     visible: card.activeSection === "search"
 
                     Column {
-                        spacing: 16
+                        spacing: 14
                         width: parent.width
 
                         Text {
@@ -358,7 +367,7 @@ Item {
                         }
 
                         Text {
-                            text: "Selecione o motor utilizado ao digitar buscas no lançador superior."
+                            text: "Selecione o motor utilizado ao digitar termos de pesquisa no lançador."
                             color: Theme.dimForeground
                             font.pixelSize: Theme.fontBody
                         }
@@ -373,9 +382,9 @@ Item {
 
                             Rectangle {
                                 width: parent.width
-                                height: 50
-                                radius: 0
-                                color: (card.config.search_engine || "google") === modelData.id ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(1, 1, 1, 0.02)
+                                height: 48
+                                radius: root.itemRadius
+                                color: (card.config.search_engine || "google") === modelData.id ? Theme.selection : Qt.rgba(1, 1, 1, 0.02)
                                 border.color: (card.config.search_engine || "google") === modelData.id ? Theme.accent : Theme.border
                                 border.width: 1
 
@@ -394,16 +403,16 @@ Item {
                                     Rectangle {
                                         width: 16
                                         height: 16
-                                        radius: 0
+                                        radius: root.itemRadius
                                         border.color: Theme.accent
-                                        border.width: 2
+                                        border.width: 1.5
                                         color: "transparent"
                                         anchors.verticalCenter: parent.verticalCenter
 
                                         Rectangle {
                                             width: 8
                                             height: 8
-                                            radius: 0
+                                            radius: Math.max(1, root.itemRadius - 1)
                                             color: Theme.accent
                                             anchors.centerIn: parent
                                             visible: (card.config.search_engine || "google") === modelData.id
@@ -428,7 +437,7 @@ Item {
                     visible: card.activeSection === "sync"
 
                     Column {
-                        spacing: 18
+                        spacing: 16
                         width: parent.width
 
                         Text {
@@ -439,19 +448,19 @@ Item {
                         }
 
                         Text {
-                            text: "Suporte nativo a login na sua Conta Google nos serviços web (Gmail, YouTube, Drive) com persistência completa de sessão."
+                            text: "Suporte a login nos serviços Google (Gmail, YouTube, Drive) com cookies e sessões persistidos em disco."
                             color: Theme.dimForeground
                             font.pixelSize: Theme.fontBody
                             width: parent.width
                             wrapMode: Text.WordWrap
                         }
 
-                        // Google Account Quick Login Card
+                        // Google Account Card
                         Rectangle {
                             width: parent.width
-                            height: 72
-                            radius: 0
-                            color: Qt.rgba(1, 1, 1, 0.04)
+                            height: 64
+                            radius: root.itemRadius
+                            color: Qt.rgba(1, 1, 1, 0.03)
                             border.color: Theme.border
                             border.width: 1
 
@@ -461,10 +470,15 @@ Item {
                                 anchors.leftMargin: 16
                                 spacing: 14
 
-                                Text { text: "🔐"; font.pixelSize: 26; anchors.verticalCenter: parent.verticalCenter }
+                                Glyph {
+                                    name: "lock"
+                                    size: 20
+                                    color: Theme.accent
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
 
                                 Column {
-                                    spacing: 3
+                                    spacing: 2
                                     Text {
                                         text: "Login na Conta Google"
                                         color: Theme.foreground
@@ -472,7 +486,7 @@ Item {
                                         font.bold: true
                                     }
                                     Text {
-                                        text: "Abra a página de login oficial do Google para gerenciar sua sessão."
+                                        text: "Abra a autenticação do Google para sincronizar suas sessões."
                                         color: Theme.dimForeground
                                         font.pixelSize: Theme.fontCaption
                                     }
@@ -480,18 +494,18 @@ Item {
                             }
 
                             Rectangle {
-                                width: 110
-                                height: 34
-                                radius: 0
+                                width: 100
+                                height: 30
+                                radius: root.itemRadius
                                 anchors.right: parent.right
-                                anchors.rightMargin: 16
+                                anchors.rightMargin: 14
                                 anchors.verticalCenter: parent.verticalCenter
                                 color: Theme.accent
 
                                 Text {
-                                    text: "Fazer Login"
+                                    text: "Login"
                                     color: Theme.background
-                                    font.pixelSize: Theme.fontBody
+                                    font.pixelSize: 12
                                     font.bold: true
                                     anchors.centerIn: parent
                                 }
@@ -501,18 +515,18 @@ Item {
                                     cursorShape: Qt.PointingHandCursor
                                     onClicked: {
                                         bridge.settingsVisible = false;
-                                        bridge.currentUrl = "https://accounts.google.com";
+                                        launcher.openUrlInTab("https://accounts.google.com");
                                     }
                                 }
                             }
                         }
 
-                        // Chrome Profile Sync
+                        // Chrome Sync Card
                         Rectangle {
                             width: parent.width
-                            height: 72
-                            radius: 0
-                            color: Qt.rgba(1, 1, 1, 0.04)
+                            height: 64
+                            radius: root.itemRadius
+                            color: Qt.rgba(1, 1, 1, 0.03)
                             border.color: Theme.border
                             border.width: 1
 
@@ -522,18 +536,23 @@ Item {
                                 anchors.leftMargin: 16
                                 spacing: 14
 
-                                Text { text: "🔄"; font.pixelSize: 26; anchors.verticalCenter: parent.verticalCenter }
+                                Glyph {
+                                    name: "refresh"
+                                    size: 20
+                                    color: Theme.foreground
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
 
                                 Column {
-                                    spacing: 3
+                                    spacing: 2
                                     Text {
-                                        text: "Sincronizar Dados do Chrome"
+                                        text: "Importar Favoritos & Histórico"
                                         color: Theme.foreground
                                         font.pixelSize: Theme.fontBody
                                         font.bold: true
                                     }
                                     Text {
-                                        text: "Importa favoritos e histórico de navegação do seu perfil do Chrome."
+                                        text: "Sincroniza os favoritos locais do Google Chrome/Chromium para o lançador."
                                         color: Theme.dimForeground
                                         font.pixelSize: Theme.fontCaption
                                     }
@@ -541,11 +560,11 @@ Item {
                             }
 
                             Rectangle {
-                                width: 110
-                                height: 34
-                                radius: 0
+                                width: 100
+                                height: 30
+                                radius: root.itemRadius
                                 anchors.right: parent.right
-                                anchors.rightMargin: 16
+                                anchors.rightMargin: 14
                                 anchors.verticalCenter: parent.verticalCenter
                                 color: Theme.selection
                                 border.color: Theme.accent
@@ -554,7 +573,7 @@ Item {
                                 Text {
                                     text: "Sincronizar"
                                     color: Theme.foreground
-                                    font.pixelSize: Theme.fontBody
+                                    font.pixelSize: 12
                                     font.bold: true
                                     anchors.centerIn: parent
                                 }
@@ -569,7 +588,7 @@ Item {
                     }
                 }
 
-                // Section 4: Aparência & Tema
+                // Section 4: Aparência (Omarchy Theme)
                 Item {
                     id: paneAppearance
                     anchors.fill: parent
@@ -577,58 +596,61 @@ Item {
                     visible: card.activeSection === "appearance"
 
                     Column {
-                        spacing: 20
+                        spacing: 16
                         width: parent.width
 
                         Text {
-                            text: "Aparência e Integração de Tema"
+                            text: "Aparência & Integração Omarchy"
                             color: Theme.foreground
                             font.pixelSize: 18
                             font.bold: true
                         }
 
                         Text {
-                            text: "O OmaBrowser segue automaticamente a paleta e tema do Omarchy (~/.local/state/omarchy/current/theme)."
+                            text: "O Focus adota em tempo real as cores, cantos arredondados e espessura de borda definidos pelo tema do seu sistema Omarchy."
                             color: Theme.dimForeground
                             font.pixelSize: Theme.fontBody
                             width: parent.width
                             wrapMode: Text.WordWrap
                         }
 
-                        Row {
-                            spacing: 12
-                            Repeater {
-                                model: [
-                                    { name: "Fundo", color: Theme.background },
-                                    { name: "Superfície", color: Theme.surface },
-                                    { name: "Variante", color: Theme.surfaceVariant },
-                                    { name: "Destaque", color: Theme.accent },
-                                    { name: "Borda", color: Theme.border }
-                                ]
+                        // Theme Info Card
+                        Rectangle {
+                            width: parent.width
+                            height: 110
+                            radius: root.itemRadius
+                            color: Qt.rgba(1, 1, 1, 0.03)
+                            border.color: Theme.border
+                            border.width: 1
 
-                                Column {
-                                    spacing: 6
-                                    Rectangle {
-                                        width: 50
-                                        height: 35
-                                        radius: 0
-                                        color: modelData.color
-                                        border.color: Theme.border
-                                        border.width: 1
-                                    }
-                                    Text {
-                                        text: modelData.name
-                                        color: Theme.dimForeground
-                                        font.pixelSize: 10
-                                        anchors.horizontalCenter: parent.horizontalCenter
-                                    }
+                            Column {
+                                anchors.fill: parent
+                                anchors.margins: 14
+                                spacing: 8
+
+                                Row {
+                                    spacing: 12
+                                    Text { text: "Arredondamento dos Cantos:"; color: Theme.dimForeground; font.pixelSize: 12; width: 180 }
+                                    Text { text: Theme.cornerRadius + "px (Automático via Hyprland)"; color: Theme.foreground; font.bold: true; font.pixelSize: 12 }
+                                }
+
+                                Row {
+                                    spacing: 12
+                                    Text { text: "Espessura do Contorno:"; color: Theme.dimForeground; font.pixelSize: 12; width: 180 }
+                                    Text { text: Theme.borderSize + "px"; color: Theme.foreground; font.bold: true; font.pixelSize: 12 }
+                                }
+
+                                Row {
+                                    spacing: 12
+                                    Text { text: "Transparência Inativa:"; color: Theme.dimForeground; font.pixelSize: 12; width: 180 }
+                                    Text { text: "0.88 quando desfocado, 1.0 com foco/cursor"; color: Theme.accent; font.bold: true; font.pixelSize: 12 }
                                 }
                             }
                         }
                     }
                 }
 
-                // Section 5: Sobre
+                // Section 5: Sobre Focus
                 Item {
                     id: paneAbout
                     anchors.fill: parent
@@ -640,25 +662,40 @@ Item {
                         width: parent.width
 
                         Text {
-                            text: "Sobre o OmaBrowser"
+                            text: "Sobre o Focus"
                             color: Theme.foreground
                             font.pixelSize: 18
                             font.bold: true
                         }
 
                         Text {
-                            text: "Navegador ultrarrápido construído em Rust e Qt6 WebEngine com o design elegante do ecossistema Omarchy e inspirado no Flea."
+                            text: "Navegador desktop minimalista com tela 100% limpa, ilha de comando unificada e motor WebEngine Chromium nativo integrado ao ecossistema Omarchy."
                             color: Theme.dimForeground
                             font.pixelSize: Theme.fontBody
                             width: parent.width
                             wrapMode: Text.WordWrap
                         }
 
-                        Text {
-                            text: "• Versão: 0.1.0\n• Motor Primário: Qt6 WebEngine (Chromium Blink/V8)\n• Motor Secundário: Zen Browser / Firefox (Gecko)\n• Backend: Rust (Cargo) + C++ Bridge\n• Atalho Lançador: Tecla Espaço ou passar o mouse no topo"
-                            color: Theme.foreground
-                            font.pixelSize: 13
-                            lineHeight: 1.4
+                        Rectangle {
+                            width: parent.width
+                            height: 140
+                            radius: root.itemRadius
+                            color: Qt.rgba(1, 1, 1, 0.03)
+                            border.color: Theme.border
+                            border.width: 1
+
+                            Column {
+                                anchors.fill: parent
+                                anchors.margins: 14
+                                spacing: 7
+
+                                Text { text: "Atalhos Rápidos de Teclado:"; color: Theme.foreground; font.bold: true; font.pixelSize: 12 }
+                                Text { text: "• Espaço / Alt+Espaço: Abrir o lançador superior"; color: Theme.dimForeground; font.pixelSize: 11 }
+                                Text { text: "• Ctrl+T: Nova aba (mantém o lançador aberto)"; color: Theme.dimForeground; font.pixelSize: 11 }
+                                Text { text: "• Ctrl+L: Abrir barra de digitação rápida"; color: Theme.dimForeground; font.pixelSize: 11 }
+                                Text { text: "• F12: Abrir/fechar Chrome DevTools nativo"; color: Theme.dimForeground; font.pixelSize: 11 }
+                                Text { text: "• Esc / Clique fora: Fechar o lançador expandido"; color: Theme.dimForeground; font.pixelSize: 11 }
+                            }
                         }
                     }
                 }

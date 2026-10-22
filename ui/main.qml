@@ -86,6 +86,12 @@ Window {
                             bridge.isLoading = (loadRequest.status === WebEngineView.LoadStartedStatus);
                         }
                     }
+
+                    onContextMenuRequested: function(request) {
+                        request.accepted = true;
+                        var pos = mapToItem(rootCanvas, request.position.x, request.position.y);
+                        contextMenu.showAt(request, webView, pos);
+                    }
                 }
             }
         }
@@ -263,6 +269,11 @@ Window {
         id: settingsModal
     }
 
+    // Omarchy-Themed Context Menu
+    ContextMenu {
+        id: contextMenu
+    }
+
     // Global Window Shortcuts (Active window-wide, always intercepts regardless of webView focus)
     Shortcut {
         sequence: "Space"
@@ -288,6 +299,7 @@ Window {
     Shortcut {
         sequence: "Ctrl+T"
         onActivated: {
+            launcher.createNewTab("");
             launcher.isExpanded = true;
             bridge.launcherVisible = true;
         }
@@ -316,11 +328,14 @@ Window {
     Shortcut {
         sequence: "Escape"
         onActivated: {
-            if (window.devToolsOpen) {
+            if (contextMenu.visible) {
+                contextMenu.dismiss();
+            } else if (window.devToolsOpen) {
                 window.devToolsOpen = false;
             } else if (bridge.settingsVisible) {
                 bridge.settingsVisible = false;
             } else if (bridge.launcherVisible) {
+                launcher.isExpanded = false;
                 bridge.launcherVisible = false;
             }
         }

@@ -1,2 +1,4 @@
 singleton Theme 1.0 Theme.qml
 Glyph 1.0 Glyph.qml
+ContextMenu 1.0 ContextMenu.qml
+
