@@ -55,6 +55,7 @@ Window {
             title: ""
             url: ""  // Inicialmente NADA no fundo (canvas limpo!)
             workspace: "Principal"
+            favicon: ""
         }
     }
 
@@ -84,6 +85,7 @@ Window {
 
             delegate: Item {
                 id: tabItemDelegate
+                property alias webViewItem: webView
                 anchors.top: parent.top
                 anchors.bottom: devToolsDock.top
 
@@ -148,9 +150,28 @@ Window {
                         tabsModel.setProperty(index, "title", title);
                     }
 
+                    onIconChanged: {
+                        var iconStr = icon ? icon.toString() : "";
+                        tabsModel.setProperty(index, "favicon", iconStr);
+                    }
+
                     onLoadingChanged: function(loadRequest) {
                         if ((isLeftPane && window.focusedPane === "left") || (isRightPane && window.focusedPane === "right")) {
                             bridge.isLoading = (loadRequest.status === WebEngineView.LoadStartedStatus);
+                        }
+
+                        // Auto fallback: Se falhou ao carregar endereço digitado sem www (DNS/resolução de host falhou), tenta automaticamente com www.
+                        if (loadRequest.status === WebEngineView.LoadFailedStatus) {
+                            var failedUrl = loadRequest.url ? loadRequest.url.toString() : "";
+                            if (failedUrl && failedUrl.startsWith("https://") && !failedUrl.startsWith("https://www.")) {
+                                var retryUrl = failedUrl.replace("https://", "https://www.");
+                                console.log("[Focus] Host não encontrado sem www, tentando com www: " + retryUrl);
+                                webView.url = retryUrl;
+                                tabsModel.setProperty(index, "url", retryUrl);
+                                if ((isLeftPane && window.focusedPane === "left") || (isRightPane && window.focusedPane === "right")) {
+                                    bridge.currentUrl = retryUrl;
+                                }
+                            }
                         }
                     }
 
@@ -292,6 +313,10 @@ Window {
             if (tabsModel.count > 0 && targetIndex < tabsModel.count) {
                 tabsModel.setProperty(targetIndex, "url", url);
                 bridge.currentUrl = url;
+                var item = tabsRepeater.itemAt(targetIndex);
+                if (item && item.webViewItem) {
+                    item.webViewItem.url = url;
+                }
             }
         }
 
@@ -301,7 +326,8 @@ Window {
                 tabId: newId,
                 title: url ? "" : "Nova Aba",
                 url: url,
-                workspace: workspace
+                workspace: workspace,
+                favicon: ""
             });
             if (window.splitViewActive && window.focusedPane === "right") {
                 window.splitTabIndex = tabsModel.count - 1;
@@ -339,6 +365,7 @@ Window {
             } else if (tabsModel.count === 1) {
                 tabsModel.setProperty(0, "url", "");
                 tabsModel.setProperty(0, "title", "");
+                tabsModel.setProperty(0, "favicon", "");
                 bridge.currentUrl = "";
                 window.activeWebTitle = "";
             }
@@ -347,17 +374,12 @@ Window {
         onWebViewAction: function(action) {
             var targetIdx = (window.splitViewActive && window.focusedPane === "right") ? window.splitTabIndex : window.activeTabIndex;
             var activeItem = tabsRepeater.itemAt(targetIdx);
-            if (activeItem) {
-                for (var i = 0; i < activeItem.children.length; i++) {
-                    var ch = activeItem.children[i];
-                    if (ch && ch.toString().indexOf("QQuickWebEngineView") !== -1) {
-                        if (action === "back") ch.goBack();
-                        else if (action === "forward") ch.goForward();
-                        else if (action === "reload") ch.reload();
-                        else if (action === "stop") ch.stop();
-                        break;
-                    }
-                }
+            if (activeItem && activeItem.webViewItem) {
+                var ch = activeItem.webViewItem;
+                if (action === "back") ch.goBack();
+                else if (action === "forward") ch.goForward();
+                else if (action === "reload") ch.reload();
+                else if (action === "stop") ch.stop();
             }
         }
     }

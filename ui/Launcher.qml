@@ -79,14 +79,13 @@ Item {
         // 2. Expanded (user clicked expand): input + 2 rows pinned + workspaces/tabs + bottom quick bar
         // 3. Resting: ONLY typing input box (50px)!
         height: {
-            var isTyping = inputQuery.text.trim().length > 0;
-            if (isTyping) {
-                return Math.min(460, 50 + resultsModel.count * 42);
-            } else if (root.isExpanded) {
+            if (root.isExpanded) {
+                // Expande completamente mesmo se estiver digitando!
                 // Input (50) + Pinned 2 rows (94) + Tabs (140) + Bottom bar (42) = 326px
                 return 50 + 94 + 140 + 42;
+            } else if (inputQuery.text.trim().length > 0) {
+                return Math.min(460, 50 + resultsModel.count * 42);
             } else {
-                // Starts ONLY showing the input area
                 return 50;
             }
         }
@@ -209,6 +208,33 @@ Item {
                 width: parent.width
                 height: 50
                 color: "transparent"
+
+                WheelHandler {
+                    target: null
+                    acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                    onWheel: function(event) {
+                        if (root.tabsModel && root.tabsModel.count > 1) {
+                            var count = root.tabsModel.count;
+                            var currentIdx = root.activeTabIndex;
+                            var newIdx = currentIdx;
+                            if (event.angleDelta.y > 0) {
+                                newIdx = (currentIdx - 1 + count) % count;
+                            } else if (event.angleDelta.y < 0) {
+                                newIdx = (currentIdx + 1) % count;
+                            }
+                            if (newIdx !== currentIdx) {
+                                root.switchTab(newIdx);
+                                var tab = root.tabsModel.get(newIdx);
+                                if (tab && tab.url && tab.url !== "about:blank") {
+                                    inputQuery.text = tab.url;
+                                } else {
+                                    inputQuery.text = "";
+                                }
+                                inputQuery.selectAll();
+                            }
+                        }
+                    }
+                }
 
                 // Left: Botão de Configuração da Página (Site Settings / SSL Padlock)
                 Rectangle {
@@ -426,6 +452,33 @@ Item {
                     selectByMouse: true
                     clip: true
 
+                    WheelHandler {
+                        target: null
+                        acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                        onWheel: function(event) {
+                            if (root.tabsModel && root.tabsModel.count > 1) {
+                                var count = root.tabsModel.count;
+                                var currentIdx = root.activeTabIndex;
+                                var newIdx = currentIdx;
+                                if (event.angleDelta.y > 0) {
+                                    newIdx = (currentIdx - 1 + count) % count;
+                                } else if (event.angleDelta.y < 0) {
+                                    newIdx = (currentIdx + 1) % count;
+                                }
+                                if (newIdx !== currentIdx) {
+                                    root.switchTab(newIdx);
+                                    var tab = root.tabsModel.get(newIdx);
+                                    if (tab && tab.url && tab.url !== "about:blank") {
+                                        inputQuery.text = tab.url;
+                                    } else {
+                                        inputQuery.text = "";
+                                    }
+                                    inputQuery.selectAll();
+                                }
+                            }
+                        }
+                    }
+
                     Text {
                         text: "Digite uma URL ou pesquise..."
                         color: Theme.dimForeground
@@ -465,7 +518,7 @@ Item {
                 id: pinnedSection
                 width: parent.width
                 height: 94
-                visible: root.isExpanded && inputQuery.text.trim().length === 0
+                visible: root.isExpanded
                 clip: true
 
                 DropArea {
@@ -523,11 +576,27 @@ Item {
                                     anchors.centerIn: parent
                                     spacing: 6
 
-                                    Glyph {
-                                        name: modelData.glyph
-                                        size: 13
-                                        color: pin1Mouse.containsMouse ? Theme.accent : Theme.dimForeground
+                                    Item {
+                                        width: 14
+                                        height: 14
                                         anchors.verticalCenter: parent.verticalCenter
+
+                                        Image {
+                                            id: pin1Favicon
+                                            anchors.fill: parent
+                                            source: root.getFavicon(modelData.url, "")
+                                            fillMode: Image.PreserveAspectFit
+                                            asynchronous: true
+                                            visible: status === Image.Ready
+                                        }
+
+                                        Glyph {
+                                            anchors.centerIn: parent
+                                            name: modelData.glyph || "globe"
+                                            size: 13
+                                            color: pin1Mouse.containsMouse ? Theme.accent : Theme.dimForeground
+                                            visible: pin1Favicon.status !== Image.Ready
+                                        }
                                     }
 
                                     Text {
@@ -570,11 +639,27 @@ Item {
                                     anchors.centerIn: parent
                                     spacing: 6
 
-                                    Glyph {
-                                        name: modelData.glyph
-                                        size: 13
-                                        color: pin2Mouse.containsMouse ? Theme.accent : Theme.dimForeground
+                                    Item {
+                                        width: 14
+                                        height: 14
                                         anchors.verticalCenter: parent.verticalCenter
+
+                                        Image {
+                                            id: pin2Favicon
+                                            anchors.fill: parent
+                                            source: root.getFavicon(modelData.url, "")
+                                            fillMode: Image.PreserveAspectFit
+                                            asynchronous: true
+                                            visible: status === Image.Ready
+                                        }
+
+                                        Glyph {
+                                            anchors.centerIn: parent
+                                            name: modelData.glyph || "globe"
+                                            size: 13
+                                            color: pin2Mouse.containsMouse ? Theme.accent : Theme.dimForeground
+                                            visible: pin2Favicon.status !== Image.Ready
+                                        }
                                     }
 
                                     Text {
@@ -591,13 +676,13 @@ Item {
                 }
             }
 
-            // 3. SEARCH SUGGESTIONS (Aparece SOMENTE ao digitar)
+            // 3. SEARCH SUGGESTIONS (Aparece SOMENTE ao digitar quando não estiver expandido)
             ListView {
                 id: resultsList
                 width: parent.width
-                height: inputQuery.text.trim().length > 0 ? (launcherCard.height - 50) : 0
+                height: (!root.isExpanded && inputQuery.text.trim().length > 0) ? (launcherCard.height - 50) : 0
                 clip: true
-                visible: inputQuery.text.trim().length > 0
+                visible: !root.isExpanded && inputQuery.text.trim().length > 0
                 model: ListModel { id: resultsModel }
 
                 delegate: Rectangle {
@@ -622,11 +707,27 @@ Item {
                         anchors.rightMargin: 16
                         spacing: 12
 
-                        Glyph {
-                            name: model.isUrl ? "globe" : "search"
-                            size: 14
-                            color: Theme.accent
+                        Item {
+                            width: 14
+                            height: 14
                             anchors.verticalCenter: parent.verticalCenter
+
+                            Image {
+                                id: resFavicon
+                                anchors.fill: parent
+                                source: root.getFavicon(model.url, "")
+                                fillMode: Image.PreserveAspectFit
+                                asynchronous: true
+                                visible: status === Image.Ready && model.isUrl
+                            }
+
+                            Glyph {
+                                anchors.centerIn: parent
+                                name: model.isUrl ? "globe" : "search"
+                                size: 14
+                                color: Theme.accent
+                                visible: !model.isUrl || resFavicon.status !== Image.Ready
+                            }
                         }
 
                         Column {
@@ -660,7 +761,7 @@ Item {
                 id: tabsSection
                 width: parent.width
                 height: 140
-                visible: root.isExpanded && inputQuery.text.trim().length === 0
+                visible: root.isExpanded
                 clip: true
 
                 Column {
@@ -826,11 +927,28 @@ Item {
                                         }
                                     }
 
-                                    Glyph {
-                                        name: "file"
-                                        size: 12
-                                        color: Theme.dimForeground
+                                    // Favicon do site na frente do endereço / título da aba aberta
+                                    Item {
+                                        width: 14
+                                        height: 14
                                         anchors.verticalCenter: parent.verticalCenter
+
+                                        Image {
+                                            id: tabFavicon
+                                            anchors.fill: parent
+                                            source: root.getFavicon(model.url, model.favicon || "")
+                                            fillMode: Image.PreserveAspectFit
+                                            asynchronous: true
+                                            visible: status === Image.Ready
+                                        }
+
+                                        Glyph {
+                                            anchors.centerIn: parent
+                                            name: "globe"
+                                            size: 12
+                                            color: Theme.dimForeground
+                                            visible: tabFavicon.status !== Image.Ready
+                                        }
                                     }
 
                                     Text {
@@ -839,7 +957,7 @@ Item {
                                         font.pixelSize: 12
                                         font.bold: root.activeTabIndex === index
                                         elide: Text.ElideRight
-                                        width: parent.width - 75
+                                        width: parent.width - 92
                                         anchors.verticalCenter: parent.verticalCenter
                                     }
 
@@ -870,7 +988,7 @@ Item {
                 width: parent.width
                 height: 42
                 color: "transparent"
-                visible: root.isExpanded && inputQuery.text.trim().length === 0
+                visible: root.isExpanded
 
                 Row {
                     anchors.verticalCenter: parent.verticalCenter
@@ -1063,12 +1181,60 @@ Item {
     function extractDomain(url) {
         if (!url) return "";
         try {
-            var match = url.match(/^(?:https?:\/\/)?(?:[^@\n]+@)?(?:www\.)?([^:\/\n?]+)/img);
-            if (match && match.length > 0) {
-                return match[0].replace(/^https?:\/\//i, '').replace(/^www\./i, '');
+            var match = url.match(/^(?:https?:\/\/)?(?:www\.)?([^\/\?#:]+)/i);
+            if (match && match[1]) {
+                return match[1];
             }
         } catch(e) {}
         return url;
+    }
+
+    function getFavicon(url, localFavicon) {
+        if (localFavicon && localFavicon.length > 0 && (localFavicon.indexOf("://") !== -1 || localFavicon.startsWith("data:") || localFavicon.startsWith("image:"))) {
+            return localFavicon;
+        }
+        if (!url || url.length === 0 || url === "about:blank") return "";
+        var domain = extractDomain(url);
+        if (!domain || domain.indexOf(".") === -1) return "";
+        return "https://www.google.com/s2/favicons?domain=" + domain + "&sz=32";
+    }
+
+    function formatUrl(query) {
+        var text = (query || "").trim();
+        if (!text) return "";
+
+        // Se já possui protocolo
+        if (text.match(/^(https?:\/\/|file:\/\/|ftp:\/\/|about:|chrome:\/\/)/i)) {
+            return text;
+        }
+
+        // Se começa com www.
+        if (text.match(/^www\./i)) {
+            return "https://" + text;
+        }
+
+        // Localhost com porta opcional
+        if (text.match(/^localhost(:[0-9]+)?(\/.*)?$/i)) {
+            return "http://" + text;
+        }
+
+        // Endereço IP numérico
+        if (text.match(/^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}(:[0-9]+)?(\/.*)?$/)) {
+            return "http://" + text;
+        }
+
+        // Qualquer domínio sem www (ex: google.com, youtube.com, globo.com, uol.com.br, reddit.com/r/archlinux)
+        if (text.indexOf(" ") === -1 && text.indexOf(".") !== -1) {
+            var host = text.split("/")[0].split("?")[0].split("#")[0];
+            var hostParts = host.split(".");
+            var tld = hostParts[hostParts.length - 1].split(":")[0];
+            if (tld && tld.length >= 2 && !tld.match(/[^a-zA-Z]/)) {
+                return "https://" + text;
+            }
+        }
+
+        // Fallback para pesquisa no Google
+        return "https://www.google.com/search?q=" + encodeURIComponent(text);
     }
 
     function translateCurrentPage() {
@@ -1081,15 +1247,7 @@ Item {
         var query = text.trim();
         if (!query) return;
 
-        var targetUrl = "";
-        if (query.match(/^(http:\/\/|https:\/\/|file:\/\/)/i)) {
-            targetUrl = query;
-        } else if (query.indexOf(".") !== -1 && query.indexOf(" ") === -1) {
-            targetUrl = "https://" + query;
-        } else {
-            targetUrl = "https://www.google.com/search?q=" + encodeURIComponent(query);
-        }
-
+        var targetUrl = root.formatUrl(query);
         navigateTo(targetUrl);
     }
 
@@ -1141,7 +1299,7 @@ Item {
             if (r2[j].url === url) return;
         }
 
-        var label = title || url.replace(/^https?:\/\/(www\.)?/, "").split("/")[0];
+        var label = title || extractDomain(url);
         if (label.length > 10) label = label.substring(0, 9) + "…";
         var item = { name: label, url: url, glyph: "globe" };
 
@@ -1172,24 +1330,27 @@ Item {
 
     function filterResults(query) {
         resultsModel.clear();
-        var q = query.trim().toLowerCase();
+        var q = query.trim();
         if (!q) return;
 
+        var targetUrl = root.formatUrl(q);
+        var isUrl = !targetUrl.startsWith("https://www.google.com/search?q=");
+
         // 1. Direct search or URL suggestion
-        var isUrl = q.match(/^(http:\/\/|https:\/\/)/i) || (q.indexOf(".") !== -1 && q.indexOf(" ") === -1);
         resultsModel.append({
             isUrl: isUrl,
-            title: isUrl ? "Ir para: " + q : "Pesquisar: \"" + query + "\"",
-            url: isUrl ? (q.startsWith("http") ? q : "https://" + q) : ("https://www.google.com/search?q=" + encodeURIComponent(query))
+            title: isUrl ? ("Ir para: " + q) : ("Pesquisar: \"" + query + "\""),
+            url: targetUrl
         });
 
         // 2. Bookmarks from Chrome
         try {
             var bookmarks = JSON.parse(bridge.bookmarksJson || "[]");
             var bCount = 0;
+            var qLower = q.toLowerCase();
             for (var i = 0; i < bookmarks.length && bCount < 5; i++) {
                 var b = bookmarks[i];
-                if ((b.title && b.title.toLowerCase().indexOf(q) !== -1) || (b.url && b.url.toLowerCase().indexOf(q) !== -1)) {
+                if ((b.title && b.title.toLowerCase().indexOf(qLower) !== -1) || (b.url && b.url.toLowerCase().indexOf(qLower) !== -1)) {
                     resultsModel.append({
                         isUrl: true,
                         title: b.title || b.url,
@@ -1204,9 +1365,10 @@ Item {
         try {
             var history = JSON.parse(bridge.historyJson || "[]");
             var hCount = 0;
+            var qLowerH = q.toLowerCase();
             for (var j = 0; j < history.length && hCount < 6; j++) {
                 var h = history[j];
-                if ((h.title && h.title.toLowerCase().indexOf(q) !== -1) || (h.url && h.url.toLowerCase().indexOf(q) !== -1)) {
+                if ((h.title && h.title.toLowerCase().indexOf(qLowerH) !== -1) || (h.url && h.url.toLowerCase().indexOf(qLowerH) !== -1)) {
                     resultsModel.append({
                         isUrl: true,
                         title: h.title || h.domain,
@@ -1216,6 +1378,18 @@ Item {
                 }
             }
         } catch(e) {}
+    }
+
+    onActiveTabIndexChanged: {
+        if (bridge.launcherVisible && tabsModel && activeTabIndex >= 0 && activeTabIndex < tabsModel.count) {
+            var tab = tabsModel.get(activeTabIndex);
+            if (tab && tab.url && tab.url !== "about:blank") {
+                inputQuery.text = tab.url;
+            } else {
+                inputQuery.text = "";
+            }
+            inputQuery.selectAll();
+        }
     }
 
     onVisibleChanged: {
