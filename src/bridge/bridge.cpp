@@ -15,7 +15,10 @@
 #include <QFile>
 #include <QTextStream>
 #include <QJsonObject>
+#include <QJsonArray>
 #include <QJsonDocument>
+#include <QDateTime>
+#include <QUrl>
 #include <iostream>
 
 OmaBridge *OmaBridge::s_instance = nullptr;
@@ -120,6 +123,159 @@ void OmaBridge::saveConfig(const QString &json) {
         QByteArray utf8 = json.toUtf8();
         m_callbacks.onConfigSaved(utf8.constData());
     }
+}
+
+QString OmaBridge::passwordsJson() const {
+    QString path = QDir::homePath() + "/.config/focus/passwords.json";
+    QFile file(path);
+    if (file.open(QIODevice::ReadOnly)) {
+        return QString::fromUtf8(file.readAll());
+    }
+    return "[]";
+}
+
+void OmaBridge::saveCredential(const QString &url, const QString &username, const QString &password) {
+    QString configDir = QDir::homePath() + "/.config/focus";
+    QDir().mkpath(configDir);
+    QString path = configDir + "/passwords.json";
+
+    QJsonArray arr;
+    QFile inFile(path);
+    if (inFile.open(QIODevice::ReadOnly)) {
+        QJsonDocument doc = QJsonDocument::fromJson(inFile.readAll());
+        if (doc.isArray()) {
+            arr = doc.array();
+        }
+        inFile.close();
+    }
+
+    QString domain = url;
+    QUrl parsed(url.startsWith("http") ? url : ("https://" + url));
+    if (!parsed.host().isEmpty()) {
+        domain = parsed.host();
+    }
+
+    QJsonObject obj;
+    obj["id"] = QString::number(QDateTime::currentMSecsSinceEpoch());
+    obj["url"] = url;
+    obj["domain"] = domain;
+    obj["username"] = username;
+    obj["password"] = password;
+    obj["date"] = QDate::currentDate().toString("yyyy-MM-dd");
+
+    arr.prepend(obj);
+
+    QFile outFile(path);
+    if (outFile.open(QIODevice::WriteOnly)) {
+        QJsonDocument doc(arr);
+        outFile.write(doc.toJson(QJsonDocument::Indented));
+        outFile.close();
+    }
+
+    emit passwordsJsonChanged();
+}
+
+void OmaBridge::deleteCredential(const QString &id) {
+    QString path = QDir::homePath() + "/.config/focus/passwords.json";
+    QFile inFile(path);
+    if (!inFile.open(QIODevice::ReadOnly)) return;
+
+    QJsonDocument doc = QJsonDocument::fromJson(inFile.readAll());
+    inFile.close();
+    if (!doc.isArray()) return;
+
+    QJsonArray oldArr = doc.array();
+    QJsonArray newArr;
+    for (const QJsonValue &val : oldArr) {
+        if (val.toObject().value("id").toString() != id) {
+            newArr.append(val);
+        }
+    }
+
+    QFile outFile(path);
+    if (outFile.open(QIODevice::WriteOnly)) {
+        QJsonDocument outDoc(newArr);
+        outFile.write(outDoc.toJson(QJsonDocument::Indented));
+        outFile.close();
+    }
+
+    emit passwordsJsonChanged();
+}
+
+int OmaBridge::importPasswordsFromCsv(const QString &csvPath) {
+    QFile file(csvPath);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return -1;
+    }
+
+    QString configDir = QDir::homePath() + "/.config/focus";
+    QDir().mkpath(configDir);
+    QString path = configDir + "/passwords.json";
+
+    QJsonArray arr;
+    QFile inFile(path);
+    if (inFile.open(QIODevice::ReadOnly)) {
+        QJsonDocument doc = QJsonDocument::fromJson(inFile.readAll());
+        if (doc.isArray()) arr = doc.array();
+        inFile.close();
+    }
+
+    QTextStream in(&file);
+    int importedCount = 0;
+    bool isFirstLine = true;
+    int urlCol = 1, userCol = 2, passCol = 3;
+
+    while (!in.atEnd()) {
+        QString line = in.readLine().trimmed();
+        if (line.isEmpty()) continue;
+
+        QStringList parts = line.split(",");
+        if (isFirstLine) {
+            isFirstLine = false;
+            for (int i = 0; i < parts.size(); ++i) {
+                QString col = parts[i].toLower().remove('"').trimmed();
+                if (col == "url") urlCol = i;
+                else if (col == "username") userCol = i;
+                else if (col == "password") passCol = i;
+            }
+            continue;
+        }
+
+        if (parts.size() > qMax(urlCol, qMax(userCol, passCol))) {
+            QString url = parts[urlCol].remove('"').trimmed();
+            QString user = parts[userCol].remove('"').trimmed();
+            QString pass = parts[passCol].remove('"').trimmed();
+
+            if (!url.isEmpty() && !user.isEmpty()) {
+                QString domain = url;
+                QUrl parsed(url.startsWith("http") ? url : ("https://" + url));
+                if (!parsed.host().isEmpty()) domain = parsed.host();
+
+                QJsonObject obj;
+                obj["id"] = QString::number(QDateTime::currentMSecsSinceEpoch()) + "_" + QString::number(importedCount);
+                obj["url"] = url;
+                obj["domain"] = domain;
+                obj["username"] = user;
+                obj["password"] = pass;
+                obj["date"] = QDate::currentDate().toString("yyyy-MM-dd");
+
+                arr.prepend(obj);
+                importedCount++;
+            }
+        }
+    }
+
+    file.close();
+
+    QFile outFile(path);
+    if (outFile.open(QIODevice::WriteOnly)) {
+        QJsonDocument doc(arr);
+        outFile.write(doc.toJson(QJsonDocument::Indented));
+        outFile.close();
+    }
+
+    emit passwordsJsonChanged();
+    return importedCount;
 }
 
 void OmaBridge::syncChrome() {

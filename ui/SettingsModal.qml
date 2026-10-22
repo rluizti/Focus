@@ -143,6 +143,7 @@ Item {
                             { id: "engine", label: "Motor Web", glyph: "globe" },
                             { id: "search", label: "Pesquisa", glyph: "search" },
                             { id: "sync", label: "Conta & Sync", glyph: "lock" },
+                            { id: "passwords", label: "Senhas", glyph: "key" },
                             { id: "appearance", label: "Aparência", glyph: "contrast" },
                             { id: "about", label: "Sobre", glyph: "keyboard" }
                         ]
@@ -660,6 +661,430 @@ Item {
                     }
                 }
 
+                // Section: Senhas & Logins Salvas no PC
+                Item {
+                    id: panePasswords
+                    anchors.fill: parent
+                    anchors.margins: 28
+                    visible: card.activeSection === "passwords"
+
+                    property var passwordsList: {
+                        try {
+                            return JSON.parse(bridge.passwordsJson || "[]")
+                        } catch(e) {
+                            return []
+                        }
+                    }
+
+                    property bool showAddForm: false
+
+                    Column {
+                        spacing: 14
+                        width: parent.width
+
+                        Row {
+                            width: parent.width
+                            spacing: 12
+
+                            Column {
+                                width: parent.width - 245
+                                spacing: 4
+
+                                Text {
+                                    text: "Senhas & Logins no PC"
+                                    color: Theme.foreground
+                                    font.pixelSize: 18
+                                    font.bold: true
+                                }
+
+                                Text {
+                                    text: "Cofre soberano salvo no seu computador (~/.config/focus/passwords.json). Sessões permanecem salvas em cookies persistentes."
+                                    color: Theme.dimForeground
+                                    font.pixelSize: Theme.fontCaption
+                                    width: parent.width
+                                    wrapMode: Text.WordWrap
+                                }
+                            }
+
+                            // Botão Adicionar Conta
+                            Rectangle {
+                                width: 105
+                                height: 32
+                                radius: root.itemRadius
+                                color: Theme.accent
+                                anchors.verticalCenter: parent.verticalCenter
+
+                                Row {
+                                    anchors.centerIn: parent
+                                    spacing: 6
+                                    Glyph { name: "plus"; size: 12; color: Theme.background; anchors.verticalCenter: parent.verticalCenter }
+                                    Text { text: "Nova Senha"; color: Theme.background; font.bold: true; font.pixelSize: 11; anchors.verticalCenter: parent.verticalCenter }
+                                }
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: panePasswords.showAddForm = !panePasswords.showAddForm
+                                }
+                            }
+
+                            // Botão Importar CSV
+                            Rectangle {
+                                width: 115
+                                height: 32
+                                radius: root.itemRadius
+                                color: Qt.rgba(1, 1, 1, 0.05)
+                                border.color: Theme.border
+                                border.width: 1
+                                anchors.verticalCenter: parent.verticalCenter
+
+                                Row {
+                                    anchors.centerIn: parent
+                                    spacing: 6
+                                    Glyph { name: "download"; size: 12; color: Theme.foreground; anchors.verticalCenter: parent.verticalCenter }
+                                    Text { text: "Importar CSV"; color: Theme.foreground; font.bold: true; font.pixelSize: 11; anchors.verticalCenter: parent.verticalCenter }
+                                }
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: {
+                                        var defaultPath = "/home/renato/Downloads/Chrome Passwords.csv";
+                                        var count = bridge.importPasswordsFromCsv(defaultPath);
+                                        if (count < 0) {
+                                            importStatusText.text = "Para importar: no Chrome vá em 'Gerenciador de senhas > Exportar' e salve em Downloads/Chrome Passwords.csv";
+                                        } else {
+                                            importStatusText.text = "Importadas " + count + " senhas com sucesso do Chrome!";
+                                        }
+                                        importStatusTimer.restart();
+                                    }
+                                }
+                            }
+                        }
+
+                        Text {
+                            id: importStatusText
+                            text: ""
+                            color: Theme.accent
+                            font.pixelSize: 11
+                            visible: text.length > 0
+                        }
+
+                        Timer {
+                            id: importStatusTimer
+                            interval: 6000
+                            onTriggered: importStatusText.text = ""
+                        }
+
+                        // Formulário Inline para adicionar senha
+                        Rectangle {
+                            width: parent.width
+                            height: panePasswords.showAddForm ? 90 : 0
+                            visible: height > 0
+                            clip: true
+                            radius: root.itemRadius
+                            color: Qt.rgba(1, 1, 1, 0.04)
+                            border.color: Theme.accent
+                            border.width: 1
+
+                            Behavior on height {
+                                NumberAnimation { duration: 150 }
+                            }
+
+                            Column {
+                                anchors.fill: parent
+                                anchors.margins: 10
+                                spacing: 8
+
+                                Row {
+                                    spacing: 8
+                                    width: parent.width
+
+                                    // Input Site
+                                    Rectangle {
+                                        width: (parent.width - 100) / 3
+                                        height: 30
+                                        radius: root.itemRadius
+                                        color: Theme.surface
+                                        border.color: Theme.border
+                                        border.width: 1
+
+                                        TextInput {
+                                            id: siteInput
+                                            anchors.fill: parent
+                                            anchors.margins: 6
+                                            color: Theme.foreground
+                                            font.pixelSize: 11
+                                            clip: true
+                                            Text {
+                                                text: "Site (ex: github.com)"
+                                                color: Theme.dimForeground
+                                                font.pixelSize: 11
+                                                visible: !siteInput.text
+                                            }
+                                        }
+                                    }
+
+                                    // Input Usuário
+                                    Rectangle {
+                                        width: (parent.width - 100) / 3
+                                        height: 30
+                                        radius: root.itemRadius
+                                        color: Theme.surface
+                                        border.color: Theme.border
+                                        border.width: 1
+
+                                        TextInput {
+                                            id: userInput
+                                            anchors.fill: parent
+                                            anchors.margins: 6
+                                            color: Theme.foreground
+                                            font.pixelSize: 11
+                                            clip: true
+                                            Text {
+                                                text: "Usuário / Email"
+                                                color: Theme.dimForeground
+                                                font.pixelSize: 11
+                                                visible: !userInput.text
+                                            }
+                                        }
+                                    }
+
+                                    // Input Senha
+                                    Rectangle {
+                                        width: (parent.width - 100) / 3
+                                        height: 30
+                                        radius: root.itemRadius
+                                        color: Theme.surface
+                                        border.color: Theme.border
+                                        border.width: 1
+
+                                        TextInput {
+                                            id: passInput
+                                            anchors.fill: parent
+                                            anchors.margins: 6
+                                            color: Theme.foreground
+                                            font.pixelSize: 11
+                                            echoMode: TextInput.Password
+                                            clip: true
+                                            Text {
+                                                text: "Senha"
+                                                color: Theme.dimForeground
+                                                font.pixelSize: 11
+                                                visible: !passInput.text
+                                            }
+                                        }
+                                    }
+
+                                    // Botão Salvar
+                                    Rectangle {
+                                        width: 80
+                                        height: 30
+                                        radius: root.itemRadius
+                                        color: Theme.green
+                                        anchors.verticalCenter: parent.verticalCenter
+
+                                        Text {
+                                            text: "Salvar"
+                                            color: Theme.background
+                                            font.bold: true
+                                            font.pixelSize: 11
+                                            anchors.centerIn: parent
+                                        }
+
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: {
+                                                if (siteInput.text && passInput.text) {
+                                                    bridge.saveCredential(siteInput.text, userInput.text, passInput.text);
+                                                    siteInput.text = "";
+                                                    userInput.text = "";
+                                                    passInput.text = "";
+                                                    panePasswords.showAddForm = false;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                Text {
+                                    text: "As credenciais são salvas localmente no computador em ~/.config/focus/passwords.json"
+                                    color: Theme.dimForeground
+                                    font.pixelSize: 10
+                                }
+                            }
+                        }
+
+                        // Lista de Senhas Salvas
+                        Rectangle {
+                            width: parent.width
+                            height: 250
+                            radius: root.itemRadius
+                            color: Qt.rgba(1, 1, 1, 0.02)
+                            border.color: Theme.border
+                            border.width: 1
+                            clip: true
+
+                            ListView {
+                                id: passListView
+                                anchors.fill: parent
+                                anchors.margins: 6
+                                spacing: 4
+                                clip: true
+                                model: panePasswords.passwordsList
+
+                                delegate: Rectangle {
+                                    width: passListView.width
+                                    height: 38
+                                    radius: root.itemRadius
+                                    color: pMouse.containsMouse ? Theme.selection : "transparent"
+
+                                    property bool revealed: false
+
+                                    MouseArea {
+                                        id: pMouse
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                    }
+
+                                    Row {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 10
+                                        anchors.rightMargin: 10
+                                        spacing: 12
+
+                                        Glyph {
+                                            name: "globe"
+                                            size: 13
+                                            color: Theme.accent
+                                            anchors.verticalCenter: parent.verticalCenter
+                                        }
+
+                                        Text {
+                                            text: modelData.domain || modelData.url
+                                            color: Theme.foreground
+                                            font.bold: true
+                                            font.pixelSize: 12
+                                            width: 140
+                                            elide: Text.ElideRight
+                                            anchors.verticalCenter: parent.verticalCenter
+                                        }
+
+                                        Text {
+                                            text: modelData.username || "(Sem usuário)"
+                                            color: Theme.dimForeground
+                                            font.pixelSize: 12
+                                            width: 160
+                                            elide: Text.ElideRight
+                                            anchors.verticalCenter: parent.verticalCenter
+                                        }
+
+                                        Text {
+                                            text: revealed ? modelData.password : "••••••••••••"
+                                            color: revealed ? Theme.foreground : Theme.dimForeground
+                                            font.pixelSize: 12
+                                            width: 120
+                                            elide: Text.ElideRight
+                                            anchors.verticalCenter: parent.verticalCenter
+                                        }
+
+                                        // Olho (revelar senha)
+                                        Rectangle {
+                                            width: 24
+                                            height: 24
+                                            radius: root.itemRadius
+                                            color: eyeMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+                                            anchors.verticalCenter: parent.verticalCenter
+
+                                            Glyph {
+                                                name: revealed ? "eye-off" : "eye"
+                                                size: 13
+                                                color: Theme.dimForeground
+                                                anchors.centerIn: parent
+                                            }
+
+                                            MouseArea {
+                                                id: eyeMouse
+                                                anchors.fill: parent
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: revealed = !revealed
+                                            }
+                                        }
+
+                                        // Copiar senha
+                                        Rectangle {
+                                            width: 24
+                                            height: 24
+                                            radius: root.itemRadius
+                                            color: copyMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+                                            anchors.verticalCenter: parent.verticalCenter
+
+                                            Glyph {
+                                                name: "copy"
+                                                size: 13
+                                                color: Theme.dimForeground
+                                                anchors.centerIn: parent
+                                            }
+
+                                            MouseArea {
+                                                id: copyMouse
+                                                anchors.fill: parent
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: {
+                                                    copyHelper.text = modelData.password;
+                                                    copyHelper.selectAll();
+                                                    copyHelper.copy();
+                                                }
+                                            }
+                                        }
+
+                                        // Apagar senha
+                                        Rectangle {
+                                            width: 24
+                                            height: 24
+                                            radius: root.itemRadius
+                                            color: delMouse.containsMouse ? Qt.rgba(1, 0, 0, 0.15) : "transparent"
+                                            anchors.verticalCenter: parent.verticalCenter
+
+                                            Glyph {
+                                                name: "trash"
+                                                size: 13
+                                                color: delMouse.containsMouse ? Theme.red : Theme.dimForeground
+                                                anchors.centerIn: parent
+                                            }
+
+                                            MouseArea {
+                                                id: delMouse
+                                                anchors.fill: parent
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: {
+                                                    bridge.deleteCredential(modelData.id);
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Empty state
+                            Text {
+                                anchors.centerIn: parent
+                                text: "Nenhuma credencial salva ainda.\nClique em 'Nova Senha' ou importe do Chrome."
+                                color: Theme.dimForeground
+                                font.pixelSize: 12
+                                horizontalAlignment: Text.AlignHCenter
+                                visible: panePasswords.passwordsList.length === 0
+                            }
+
+                            TextInput {
+                                id: copyHelper
+                                visible: false
+                            }
+                        }
+                    }
+                }
+
                 // Section 4: Aparência (Omarchy Theme)
                 Item {
                     id: paneAppearance
@@ -672,24 +1097,100 @@ Item {
                         width: parent.width
 
                         Text {
-                            text: "Aparência & Integração Omarchy"
+                            text: "Aparência & Tema"
                             color: Theme.foreground
                             font.pixelSize: 18
                             font.bold: true
                         }
 
                         Text {
-                            text: "O Focus adota em tempo real as cores, cantos arredondados e espessura de borda definidos pelo tema do seu sistema Omarchy."
+                            text: "Escolha o modo visual do Focus. Você pode seguir o tema do sistema Omarchy ou forçar o modo escuro ou claro."
                             color: Theme.dimForeground
                             font.pixelSize: Theme.fontBody
                             width: parent.width
                             wrapMode: Text.WordWrap
                         }
 
+                        // 3 Opções: Sistema, Escuro, Claro
+                        Row {
+                            spacing: 12
+                            width: parent.width
+
+                            Repeater {
+                                model: [
+                                    { id: "system", label: "Sistema", desc: "Segue o tema Omarchy", glyph: "monitor" },
+                                    { id: "dark", label: "Escuro", desc: "Tons escuros elegantes", glyph: "moon" },
+                                    { id: "light", label: "Claro", desc: "Alta luminosidade e clareza", glyph: "sun" }
+                                ]
+
+                                Rectangle {
+                                    width: (paneAppearance.width - 24) / 3
+                                    height: 90
+                                    radius: root.itemRadius
+                                    color: (card.config.theme_mode || "system") === modelData.id ? Theme.selection : Qt.rgba(1, 1, 1, 0.02)
+                                    border.color: (card.config.theme_mode || "system") === modelData.id ? Theme.accent : Theme.border
+                                    border.width: (card.config.theme_mode || "system") === modelData.id ? 2 : 1
+
+                                    MouseArea {
+                                        id: modeMouse
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: {
+                                            card.updateConfig("theme_mode", modelData.id);
+                                        }
+                                    }
+
+                                    Column {
+                                        anchors.centerIn: parent
+                                        spacing: 6
+                                        width: parent.width - 20
+
+                                        Row {
+                                            anchors.horizontalCenter: parent.horizontalCenter
+                                            spacing: 8
+
+                                            Glyph {
+                                                name: modelData.glyph
+                                                size: 16
+                                                color: (card.config.theme_mode || "system") === modelData.id ? Theme.accent : Theme.foreground
+                                                anchors.verticalCenter: parent.verticalCenter
+                                            }
+
+                                            Text {
+                                                text: modelData.label
+                                                color: Theme.foreground
+                                                font.bold: true
+                                                font.pixelSize: 13
+                                                anchors.verticalCenter: parent.verticalCenter
+                                            }
+
+                                            Glyph {
+                                                name: "check"
+                                                size: 13
+                                                color: Theme.accent
+                                                visible: (card.config.theme_mode || "system") === modelData.id
+                                                anchors.verticalCenter: parent.verticalCenter
+                                            }
+                                        }
+
+                                        Text {
+                                            text: modelData.desc
+                                            color: Theme.dimForeground
+                                            font.pixelSize: 11
+                                            horizontalAlignment: Text.AlignHCenter
+                                            width: parent.width
+                                            elide: Text.ElideRight
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
                         // Theme Info Card
                         Rectangle {
                             width: parent.width
-                            height: 110
+                            height: 125
                             radius: root.itemRadius
                             color: Qt.rgba(1, 1, 1, 0.03)
                             border.color: Theme.border
@@ -699,6 +1200,12 @@ Item {
                                 anchors.fill: parent
                                 anchors.margins: 14
                                 spacing: 8
+
+                                Row {
+                                    spacing: 12
+                                    Text { text: "Modo Atual Ativo:"; color: Theme.dimForeground; font.pixelSize: 12; width: 180 }
+                                    Text { text: (card.config.theme_mode || "system") === "system" ? ("Sistema (" + Theme.mode + ")") : ((card.config.theme_mode === "dark") ? "Escuro Forçado" : "Claro Forçado"); color: Theme.accent; font.bold: true; font.pixelSize: 12 }
+                                }
 
                                 Row {
                                     spacing: 12
@@ -714,8 +1221,8 @@ Item {
 
                                 Row {
                                     spacing: 12
-                                    Text { text: "Transparência Inativa:"; color: Theme.dimForeground; font.pixelSize: 12; width: 180 }
-                                    Text { text: "0.88 quando desfocado, 1.0 com foco/cursor"; color: Theme.accent; font.bold: true; font.pixelSize: 12 }
+                                    Text { text: "Seleção de Texto nas Páginas:"; color: Theme.dimForeground; font.pixelSize: 12; width: 180 }
+                                    Text { text: "Injetada na cor de destaque (" + Theme.accent + ") em tempo real"; color: Theme.accent; font.bold: true; font.pixelSize: 12 }
                                 }
                             }
                         }

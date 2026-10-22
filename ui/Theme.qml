@@ -13,17 +13,86 @@ QtObject {
         }
     }
 
-    readonly property string mode: root.data.mode || "dark"
-    readonly property color background: root.data.background || "#0c0b0c"
-    readonly property color surface: root.data.surface || "#121113"
-    readonly property color surfaceVariant: root.data.surface_variant || "#1a191c"
-    readonly property color foreground: root.data.foreground || "#FAFCFB"
-    readonly property color dimForeground: root.data.dim_foreground || "#8f8a8e"
-    readonly property color accent: root.data.accent || "#b59790"
-    readonly property color border: root.data.border || "#2d2a2c"
-    readonly property color activeBorder: root.data.active_border || root.data.accent || "#cacccc"
+    property var config: {
+        try {
+            return JSON.parse(bridge.configJson)
+        } catch (e) {
+            return {}
+        }
+    }
+
+    // "system" (Omarchy system theme), "dark" (force dark), "light" (force light)
+    readonly property string themePreference: (root.config && root.config.theme_mode) ? root.config.theme_mode : "system"
+
+    readonly property bool isLightMode: {
+        if (themePreference === "light") return true;
+        if (themePreference === "dark") return false;
+        return (root.data.mode === "light");
+    }
+
+    readonly property string mode: isLightMode ? "light" : "dark"
+
+    readonly property color background: {
+        if (themePreference === "system") return root.data.background || "#0c0b0c";
+        if (themePreference === "light") {
+            return (root.data.mode === "light" && root.data.background) ? root.data.background : "#f7f7f9";
+        }
+        return (root.data.mode === "dark" && root.data.background) ? root.data.background : "#0c0b0c";
+    }
+
+    readonly property color surface: {
+        if (themePreference === "system") return root.data.surface || "#121113";
+        if (themePreference === "light") {
+            return (root.data.mode === "light" && root.data.surface) ? root.data.surface : "#ffffff";
+        }
+        return (root.data.mode === "dark" && root.data.surface) ? root.data.surface : "#121113";
+    }
+
+    readonly property color surfaceVariant: {
+        if (themePreference === "system") return root.data.surface_variant || "#1a191c";
+        if (themePreference === "light") {
+            return (root.data.mode === "light" && root.data.surface_variant) ? root.data.surface_variant : "#eeeff2";
+        }
+        return (root.data.mode === "dark" && root.data.surface_variant) ? root.data.surface_variant : "#1a191c";
+    }
+
+    readonly property color foreground: {
+        if (themePreference === "system") return root.data.foreground || "#FAFCFB";
+        if (themePreference === "light") {
+            return (root.data.mode === "light" && root.data.foreground) ? root.data.foreground : "#1a1a1c";
+        }
+        return (root.data.mode === "dark" && root.data.foreground) ? root.data.foreground : "#FAFCFB";
+    }
+
+    readonly property color dimForeground: {
+        if (themePreference === "system") return root.data.dim_foreground || "#8f8a8e";
+        if (themePreference === "light") {
+            return (root.data.mode === "light" && root.data.dim_foreground) ? root.data.dim_foreground : "#6e6d72";
+        }
+        return (root.data.mode === "dark" && root.data.dim_foreground) ? root.data.dim_foreground : "#8f8a8e";
+    }
+
+    readonly property color accent: root.data.accent || (isLightMode ? "#2f6feb" : "#b59790")
+
+    readonly property color border: {
+        if (themePreference === "system") return root.data.border || "#2d2a2c";
+        if (themePreference === "light") {
+            return (root.data.mode === "light" && root.data.border) ? root.data.border : "#d3d2d6";
+        }
+        return (root.data.mode === "dark" && root.data.border) ? root.data.border : "#2d2a2c";
+    }
+
+    readonly property color activeBorder: root.data.active_border || root.data.accent || (isLightMode ? "#2f6feb" : "#cacccc")
     readonly property int borderSize: root.data.border_size !== undefined ? root.data.border_size : 2
-    readonly property color selection: root.data.selection || "#383335"
+
+    readonly property color selection: {
+        if (themePreference === "system") return root.data.selection || "#383335";
+        if (themePreference === "light") {
+            return (root.data.mode === "light" && root.data.selection) ? root.data.selection : "#e2e1e6";
+        }
+        return (root.data.mode === "dark" && root.data.selection) ? root.data.selection : "#383335";
+    }
+
     readonly property color red: root.data.red || "#c38b7b"
     readonly property color green: root.data.green || "#87a9b0"
     readonly property color blue: root.data.blue || "#b59790"

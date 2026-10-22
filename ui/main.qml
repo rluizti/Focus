@@ -23,16 +23,21 @@ Window {
         if (!splitViewActive) {
             splitViewActive = true;
             if (tabsModel.count < 2) {
+                var currentUrl = (tabsModel.count > 0 && activeTabIndex < tabsModel.count) ? tabsModel.get(activeTabIndex).url : "";
+                var targetUrl = (currentUrl && currentUrl.length > 0 && currentUrl !== "about:blank") ? currentUrl : "https://www.google.com";
                 var newId = tabsModel.count + 1;
                 tabsModel.append({
                     tabId: newId,
                     title: "",
-                    url: "",
-                    workspace: (tabsModel.count > 0 && activeTabIndex < tabsModel.count) ? (tabsModel.get(activeTabIndex).workspace || "Principal") : "Principal"
+                    url: targetUrl,
+                    workspace: (tabsModel.count > 0 && activeTabIndex < tabsModel.count) ? (tabsModel.get(activeTabIndex).workspace || "Principal") : "Principal",
+                    favicon: ""
                 });
                 splitTabIndex = tabsModel.count - 1;
             } else {
-                splitTabIndex = (activeTabIndex + 1) % tabsModel.count;
+                if (splitTabIndex === activeTabIndex) {
+                    splitTabIndex = (activeTabIndex + 1) % tabsModel.count;
+                }
             }
             focusedPane = "right";
             var currentTab = tabsModel.get(splitTabIndex);
@@ -94,10 +99,9 @@ Window {
 
                 visible: isLeftPane || isRightPane
 
-                // Dynamic width and positioning for split screen vs full screen
-                anchors.left: (!window.splitViewActive || isLeftPane) ? parent.left : undefined
-                anchors.right: (!window.splitViewActive || isRightPane) ? parent.right : undefined
-                width: window.splitViewActive ? ((parent.width - Theme.borderSize) / 2) : parent.width
+                // Explicit positioning to guarantee perfect two-pane split with center divider
+                x: (!window.splitViewActive || isLeftPane) ? 0 : Math.ceil((parent.width + Theme.borderSize) / 2)
+                width: window.splitViewActive ? Math.floor((parent.width - Theme.borderSize) / 2) : parent.width
 
                 // Active focus border in split view
                 Rectangle {
@@ -106,6 +110,51 @@ Window {
                     border.color: (window.splitViewActive && ((isLeftPane && window.focusedPane === "left") || (isRightPane && window.focusedPane === "right"))) ? Theme.accent : "transparent"
                     border.width: 1
                     z: 50
+                }
+
+                // Placeholder when tab has no URL loaded yet
+                Rectangle {
+                    anchors.fill: parent
+                    color: Theme.background
+                    visible: !model.url || model.url.length === 0 || model.url === "about:blank"
+                    z: 10
+
+                    Column {
+                        anchors.centerIn: parent
+                        spacing: 12
+
+                        Rectangle {
+                            width: 56
+                            height: 56
+                            radius: 28
+                            color: Theme.surface
+                            border.color: Theme.border
+                            border.width: 1
+                            anchors.horizontalCenter: parent.horizontalCenter
+
+                            Glyph {
+                                name: "dual"
+                                size: 24
+                                color: Theme.accent
+                                anchors.centerIn: parent
+                            }
+                        }
+
+                        Text {
+                            text: isRightPane ? "Janela Dividida Direita" : "Focus"
+                            font.pixelSize: 18
+                            font.bold: true
+                            color: Theme.foreground
+                            anchors.horizontalCenter: parent.horizontalCenter
+                        }
+
+                        Text {
+                            text: "Digite um endereço na barra superior para carregar"
+                            font.pixelSize: 12
+                            color: Theme.muted
+                            anchors.horizontalCenter: parent.horizontalCenter
+                        }
+                    }
                 }
 
                 MouseArea {
@@ -155,9 +204,36 @@ Window {
                         tabsModel.setProperty(index, "favicon", iconStr);
                     }
 
+                    function injectSelectionStyle() {
+                        var accentColor = Theme.accent;
+                        var bgColor = Theme.background;
+                        var js = "(function() {" +
+                            "var style = document.getElementById('focus-selection-theme');" +
+                            "if (!style) {" +
+                            "  style = document.createElement('style');" +
+                            "  style.id = 'focus-selection-theme';" +
+                            "  (document.head || document.documentElement).appendChild(style);" +
+                            "}" +
+                            "style.textContent = '::selection { background-color: " + accentColor + " !important; color: " + bgColor + " !important; } " +
+                            "::-moz-selection { background-color: " + accentColor + " !important; color: " + bgColor + " !important; }';" +
+                            "})();";
+                        runJavaScript(js);
+                    }
+
+                    Connections {
+                        target: Theme
+                        function onAccentChanged() {
+                            webView.injectSelectionStyle();
+                        }
+                    }
+
                     onLoadingChanged: function(loadRequest) {
                         if ((isLeftPane && window.focusedPane === "left") || (isRightPane && window.focusedPane === "right")) {
                             bridge.isLoading = (loadRequest.status === WebEngineView.LoadStartedStatus);
+                        }
+
+                        if (loadRequest.status === WebEngineView.LoadSucceededStatus) {
+                            webView.injectSelectionStyle();
                         }
 
                         // Auto fallback: Se falhou ao carregar endereço digitado sem www (DNS/resolução de host falhou), tenta automaticamente com www.
@@ -340,13 +416,22 @@ Window {
         onSwitchTabRequested: function(index) {
             if (index >= 0 && index < tabsModel.count) {
                 if (window.splitViewActive && window.focusedPane === "right") {
+                    if (index === window.activeTabIndex && tabsModel.count > 1) {
+                        window.activeTabIndex = window.splitTabIndex;
+                    }
                     window.splitTabIndex = index;
+                } else if (window.splitViewActive && window.focusedPane === "left") {
+                    if (index === window.splitTabIndex && tabsModel.count > 1) {
+                        window.splitTabIndex = window.activeTabIndex;
+                    }
+                    window.activeTabIndex = index;
                 } else {
                     window.activeTabIndex = index;
                 }
-                var currentTab = tabsModel.get(index);
-                bridge.currentUrl = currentTab.url;
-                window.activeWebTitle = currentTab.title;
+                var curIdx = (window.splitViewActive && window.focusedPane === "right") ? window.splitTabIndex : window.activeTabIndex;
+                var currentTab = tabsModel.get(curIdx);
+                bridge.currentUrl = currentTab ? currentTab.url : "";
+                window.activeWebTitle = currentTab ? currentTab.title : "";
             }
         }
 

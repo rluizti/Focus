@@ -14,10 +14,16 @@ pub struct BrowserConfig {
     pub show_launcher_on_startup: bool,
     #[serde(default = "default_true")]
     pub enable_translation: bool,
+    #[serde(default = "default_theme_mode")]
+    pub theme_mode: String,          // "system", "dark", "light"
 }
 
 fn default_true() -> bool {
     true
+}
+
+fn default_theme_mode() -> String {
+    "system".to_string()
 }
 
 impl Default for BrowserConfig {
@@ -32,6 +38,7 @@ impl Default for BrowserConfig {
             zoom_level: 1.0,
             show_launcher_on_startup: true,
             enable_translation: true,
+            theme_mode: "system".to_string(),
         }
     }
 }

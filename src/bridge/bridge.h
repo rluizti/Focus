@@ -29,6 +29,7 @@ class OmaBridge : public QObject {
     Q_PROPERTY(qreal loadProgress READ loadProgress WRITE setLoadProgress NOTIFY loadProgressChanged)
     Q_PROPERTY(bool launcherVisible READ launcherVisible WRITE setLauncherVisible NOTIFY launcherVisibleChanged)
     Q_PROPERTY(bool settingsVisible READ settingsVisible WRITE setSettingsVisible NOTIFY settingsVisibleChanged)
+    Q_PROPERTY(QString passwordsJson READ passwordsJson NOTIFY passwordsJsonChanged)
 
 public:
     explicit OmaBridge(QObject *parent = nullptr);
@@ -70,6 +71,11 @@ public:
     bool settingsVisible() const { return m_settingsVisible; }
     void setSettingsVisible(bool val);
 
+    QString passwordsJson() const;
+    Q_INVOKABLE void saveCredential(const QString &url, const QString &username, const QString &password);
+    Q_INVOKABLE void deleteCredential(const QString &id);
+    Q_INVOKABLE int importPasswordsFromCsv(const QString &csvPath);
+
     Q_INVOKABLE void saveConfig(const QString &json);
     Q_INVOKABLE void syncChrome();
     Q_INVOKABLE void switchEngine(const QString &engine, const QString &url = QString());
@@ -86,6 +92,7 @@ signals:
     void configJsonChanged();
     void bookmarksJsonChanged();
     void historyJsonChanged();
+    void passwordsJsonChanged();
     void currentEngineChanged();
     void currentUrlChanged();
     void pageTitleChanged();
