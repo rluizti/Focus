@@ -12,15 +12,6 @@ Window {
     title: activeWebTitle ? (activeWebTitle + " — Focus") : "Focus"
     color: Theme.background
 
-    // Omarchy Inactive Opacity Effect:
-    // Transparente (0.85) quando fora de foco e sem o mouse por cima;
-    // Sem transparência (1.0) quando em foco ou quando o cursor está sobre a janela.
-    opacity: (window.active || rootMouseDetector.containsMouse) ? 1.0 : 0.85
-
-    Behavior on opacity {
-        NumberAnimation { duration: 160 }
-    }
-
     // Tabs Model for Multi-tab & Workspace management
     ListModel {
         id: tabsModel
@@ -35,32 +26,40 @@ Window {
     property int activeTabIndex: 0
     property string activeWebTitle: ""
 
-    // Global Mouse Detection for hover opacity
-    MouseArea {
-        id: rootMouseDetector
+    // Omarchy Canvas Content with Inactive Opacity Effect
+    Item {
+        id: rootCanvas
         anchors.fill: parent
-        hoverEnabled: true
-        acceptedButtons: Qt.NoButton
-        z: 0
-    }
+        opacity: (window.active || rootMouseDetector.containsMouse) ? 1.0 : 0.88
 
-    // 100% CLEAN USEFUL AREA - Zero overlays on the web canvas
-    Repeater {
-        id: tabsRepeater
-        model: tabsModel
+        Behavior on opacity {
+            NumberAnimation { duration: 160 }
+        }
 
-        delegate: Item {
+        // Global Mouse Detection for hover opacity
+        MouseArea {
+            id: rootMouseDetector
             anchors.fill: parent
-            visible: index === window.activeTabIndex
+            hoverEnabled: true
+            acceptedButtons: Qt.NoButton
+            z: 0
+        }
 
-            // WebEngineView só renderiza quando existe uma URL válida
-            WebEngineView {
-                id: webView
+        // 100% CLEAN USEFUL AREA - Zero overlays on the web canvas
+        Repeater {
+            id: tabsRepeater
+            model: tabsModel
+
+            delegate: Item {
                 anchors.fill: parent
-                visible: model.url.length > 0 && model.url !== "about:blank"
-                url: model.url
+                visible: index === window.activeTabIndex
 
-                profile: WebEngineProfile.defaultProfile
+                // WebEngineView só renderiza quando existe uma URL válida
+                WebEngineView {
+                    id: webView
+                    anchors.fill: parent
+                    visible: model.url && model.url.length > 0 && model.url !== "about:blank"
+                    url: model.url
 
                 onUrlChanged: {
                     if (index === window.activeTabIndex) {
@@ -85,6 +84,7 @@ Window {
             }
         }
     }
+}
 
     // Top Edge Trigger Zone (Hovering at the extreme top edge reveals the launcher)
     MouseArea {
