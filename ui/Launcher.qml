@@ -33,6 +33,14 @@ Item {
     property bool isExpanded: false
     readonly property int itemRadius: Theme.cornerRadius > 0 ? Math.max(2, Theme.cornerRadius - 2) : 0
 
+    property var cardConfig: {
+        try {
+            return JSON.parse(bridge.configJson)
+        } catch(e) {
+            return { enable_translation: true }
+        }
+    }
+
     // Pinned Sites (Zen Browser Style - 2 rows with Omarchy vector icons)
     property var pinnedRow1: [
         { name: "Google", url: "https://www.google.com", glyph: "globe" },
@@ -93,7 +101,102 @@ Item {
         // Swallowing clicks
         MouseArea {
             anchors.fill: parent
-            onClicked: {}
+            onClicked: {
+                if (siteInfoPopup.visible) siteInfoPopup.visible = false;
+            }
+        }
+
+        // Site Configuration & Security Popup (Page Settings)
+        Rectangle {
+            id: siteInfoPopup
+            width: 290
+            height: 185
+            anchors.top: parent.top
+            anchors.topMargin: 52
+            anchors.left: parent.left
+            anchors.leftMargin: 10
+            radius: root.itemRadius
+            color: Theme.surface
+            border.color: Theme.activeBorder
+            border.width: Theme.borderSize
+            visible: false
+            z: 999
+
+            Column {
+                anchors.fill: parent
+                anchors.margins: 12
+                spacing: 8
+
+                Row {
+                    spacing: 8
+                    Glyph {
+                        name: (bridge.currentUrl && bridge.currentUrl.indexOf("https://") === 0) ? "lock" : "alert"
+                        size: 16
+                        color: (bridge.currentUrl && bridge.currentUrl.indexOf("https://") === 0) ? Theme.green : Theme.red
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+                    Column {
+                        Text {
+                            text: root.extractDomain(bridge.currentUrl) || "Informações da Página"
+                            color: Theme.foreground
+                            font.pixelSize: 13
+                            font.bold: true
+                        }
+                        Text {
+                            text: (bridge.currentUrl && bridge.currentUrl.indexOf("https://") === 0) ? "Conexão segura (HTTPS)" : "Conexão não criptografada"
+                            color: Theme.dimForeground
+                            font.pixelSize: 11
+                        }
+                    }
+                }
+
+                Rectangle { width: parent.width; height: 1; color: Theme.border }
+
+                Text {
+                    text: "Permissões do site:"
+                    color: Theme.dimForeground
+                    font.pixelSize: 11
+                }
+
+                Row {
+                    spacing: 6
+                    Glyph { name: "check"; size: 11; color: Theme.accent; anchors.verticalCenter: parent.verticalCenter }
+                    Text { text: "Cookies e armazenamento: Permitido"; color: Theme.foreground; font.pixelSize: 11 }
+                }
+
+                Row {
+                    spacing: 6
+                    Glyph { name: "check"; size: 11; color: Theme.accent; anchors.verticalCenter: parent.verticalCenter }
+                    Text { text: "JavaScript & Hardware Canvas: Ativo"; color: Theme.foreground; font.pixelSize: 11 }
+                }
+
+                Rectangle {
+                    width: parent.width
+                    height: 26
+                    radius: root.itemRadius
+                    color: clearSiteDataMouse.containsMouse ? Theme.selection : Qt.rgba(1, 1, 1, 0.05)
+                    border.color: clearSiteDataMouse.containsMouse ? Theme.accent : Theme.border
+                    border.width: 1
+
+                    Text {
+                        text: "Recarregar limpando cache"
+                        color: Theme.foreground
+                        font.pixelSize: 11
+                        anchors.centerIn: parent
+                    }
+
+                    MouseArea {
+                        id: clearSiteDataMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            siteInfoPopup.visible = false;
+                            root.webViewAction("reload");
+                        }
+                    }
+                }
+            }
         }
 
         Column {
@@ -102,75 +205,187 @@ Item {
 
             // 1. TOP TYPING INPUT BAR (Clean, Omarchy style)
             Rectangle {
+                id: topInputBar
                 width: parent.width
                 height: 50
                 color: "transparent"
 
+                // Left: Botão de Configuração da Página (Site Settings / SSL Padlock)
                 Rectangle {
-                    width: parent.width
-                    height: 1
-                    anchors.bottom: parent.bottom
-                    color: Theme.border
-                    visible: root.isExpanded || inputQuery.text.trim().length > 0
+                    id: siteConfigBtn
+                    width: 28
+                    height: 28
+                    radius: root.itemRadius
+                    anchors.left: parent.left
+                    anchors.leftMargin: 12
+                    anchors.verticalCenter: parent.verticalCenter
+                    color: siteConfigMouse.containsMouse || siteInfoPopup.visible ? Theme.selection : "transparent"
+                    border.color: siteConfigMouse.containsMouse || siteInfoPopup.visible ? Theme.accent : "transparent"
+                    border.width: 1
+
+                    Glyph {
+                        name: (bridge.currentUrl && bridge.currentUrl.indexOf("https://") === 0) ? "lock" :
+                              ((bridge.currentUrl && bridge.currentUrl.indexOf("http://") === 0) ? "alert" : "sliders")
+                        size: 13
+                        color: (bridge.currentUrl && bridge.currentUrl.indexOf("https://") === 0) ? Theme.green :
+                               ((bridge.currentUrl && bridge.currentUrl.indexOf("http://") === 0) ? Theme.red : Theme.dimForeground)
+                        anchors.centerIn: parent
+                    }
+
+                    MouseArea {
+                        id: siteConfigMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            siteInfoPopup.visible = !siteInfoPopup.visible;
+                        }
+                    }
                 }
 
+                // Right: Ações de Navegação, Tradução e Expandir/Contrair
                 Row {
-                    anchors.verticalCenter: parent.verticalCenter
-                    anchors.left: parent.left
+                    id: rightActionsRow
                     anchors.right: parent.right
-                    anchors.leftMargin: 14
-                    anchors.rightMargin: 12
-                    spacing: 10
+                    anchors.rightMargin: 10
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 4
 
-                    // Search Icon (Omarchy Vector Glyph)
-                    Glyph {
-                        name: "search"
-                        size: 15
-                        color: Theme.dimForeground
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-
-                    // Main Text Input
-                    TextInput {
-                        id: inputQuery
-                        width: parent.width - 90
-                        anchors.verticalCenter: parent.verticalCenter
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: 13
-                        focus: true
-                        selectByMouse: true
-                        clip: true
-
-                        Text {
-                            text: "Digite uma URL ou pesquise..."
-                            color: Theme.dimForeground
-                            font.pixelSize: 13
-                            font.family: Theme.fontFamily
-                            visible: !inputQuery.text && !inputQuery.activeFocus
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
-
-                        onTextChanged: root.filterResults(text)
-
-                        Keys.onReturnPressed: {
-                            root.executeAction(inputQuery.text)
-                        }
-
-                        Keys.onEscapePressed: {
-                            root.isExpanded = false;
-                            bridge.launcherVisible = false;
-                        }
-
-                        Component.onCompleted: {
-                            if (root.visible) forceActiveFocus()
-                        }
-                    }
-
-                    // Corner Expand Button (Toggles Pinned Sites, Tabs & Quick Actions)
+                    // Botão de Tradução (se habilitado em configurações)
                     Rectangle {
-                        width: 30
-                        height: 30
+                        width: 28
+                        height: 28
+                        radius: root.itemRadius
+                        visible: root.cardConfig.enable_translation !== false && bridge.currentUrl.length > 0 && bridge.currentUrl !== "about:blank"
+                        color: translateMouse.containsMouse ? Theme.selection : "transparent"
+                        border.color: translateMouse.containsMouse ? Theme.accent : "transparent"
+                        border.width: 1
+                        anchors.verticalCenter: parent.verticalCenter
+
+                        Glyph {
+                            name: "type"
+                            size: 13
+                            color: translateMouse.containsMouse ? Theme.accent : Theme.foreground
+                            anchors.centerIn: parent
+                        }
+
+                        MouseArea {
+                            id: translateMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.translateCurrentPage()
+                        }
+                    }
+
+                    // Botão Voltar
+                    Rectangle {
+                        width: 28
+                        height: 28
+                        radius: root.itemRadius
+                        color: backBtnMouse.containsMouse ? Theme.selection : "transparent"
+                        border.color: backBtnMouse.containsMouse ? Theme.accent : "transparent"
+                        border.width: 1
+                        anchors.verticalCenter: parent.verticalCenter
+
+                        Glyph {
+                            name: "arrow-left"
+                            size: 13
+                            color: Theme.foreground
+                            anchors.centerIn: parent
+                        }
+
+                        MouseArea {
+                            id: backBtnMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.webViewAction("back")
+                        }
+                    }
+
+                    // Botão Avançar
+                    Rectangle {
+                        width: 28
+                        height: 28
+                        radius: root.itemRadius
+                        color: fwdBtnMouse.containsMouse ? Theme.selection : "transparent"
+                        border.color: fwdBtnMouse.containsMouse ? Theme.accent : "transparent"
+                        border.width: 1
+                        anchors.verticalCenter: parent.verticalCenter
+
+                        Glyph {
+                            name: "arrow-right"
+                            size: 13
+                            color: Theme.foreground
+                            anchors.centerIn: parent
+                        }
+
+                        MouseArea {
+                            id: fwdBtnMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.webViewAction("forward")
+                        }
+                    }
+
+                    // Botão Recarregar / Parar
+                    Rectangle {
+                        width: 28
+                        height: 28
+                        radius: root.itemRadius
+                        color: reloadBtnMouse.containsMouse ? Theme.selection : "transparent"
+                        border.color: reloadBtnMouse.containsMouse ? Theme.accent : "transparent"
+                        border.width: 1
+                        anchors.verticalCenter: parent.verticalCenter
+
+                        Glyph {
+                            name: bridge.isLoading ? "x" : "refresh"
+                            size: 13
+                            color: Theme.foreground
+                            anchors.centerIn: parent
+                        }
+
+                        MouseArea {
+                            id: reloadBtnMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.webViewAction(bridge.isLoading ? "stop" : "reload")
+                        }
+                    }
+
+                    // Botão Flip / Tela Dividida (Split Screen)
+                    Rectangle {
+                        width: 28
+                        height: 28
+                        radius: root.itemRadius
+                        color: (window && window.splitViewActive) ? Theme.selection : (splitBtnMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : "transparent")
+                        border.color: (window && window.splitViewActive) ? Theme.accent : "transparent"
+                        border.width: 1
+                        anchors.verticalCenter: parent.verticalCenter
+
+                        Glyph {
+                            name: "dual"
+                            size: 13
+                            color: (window && window.splitViewActive) ? Theme.accent : Theme.foreground
+                            anchors.centerIn: parent
+                        }
+
+                        MouseArea {
+                            id: splitBtnMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.flipSplitRequested()
+                        }
+                    }
+
+                    // Botão Expandir / Contrair (Seta para baixo contraído, Seta para cima expandido)
+                    Rectangle {
+                        width: 28
+                        height: 28
                         radius: root.itemRadius
                         color: root.isExpanded ? Theme.selection : (expandMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : "transparent")
                         border.color: root.isExpanded ? Theme.accent : Theme.border
@@ -178,8 +393,8 @@ Item {
                         anchors.verticalCenter: parent.verticalCenter
 
                         Glyph {
-                            name: "tabs"
-                            size: 14
+                            name: root.isExpanded ? "chevron-up" : "chevron-down"
+                            size: 13
                             color: root.isExpanded ? Theme.accent : Theme.foreground
                             anchors.centerIn: parent
                         }
@@ -192,6 +407,53 @@ Item {
                             onClicked: {
                                 root.isExpanded = !root.isExpanded;
                             }
+                        }
+                    }
+                }
+
+                // Center: Main Text Input (Address Bar & Search)
+                TextInput {
+                    id: inputQuery
+                    anchors.left: siteConfigBtn.right
+                    anchors.right: rightActionsRow.left
+                    anchors.leftMargin: 8
+                    anchors.rightMargin: 8
+                    anchors.verticalCenter: parent.verticalCenter
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 13
+                    focus: true
+                    selectByMouse: true
+                    clip: true
+
+                    Text {
+                        text: "Digite uma URL ou pesquise..."
+                        color: Theme.dimForeground
+                        font.pixelSize: 13
+                        font.family: Theme.fontFamily
+                        visible: !inputQuery.text && !inputQuery.activeFocus
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+
+                    onTextChanged: root.filterResults(text)
+
+                    Keys.onReturnPressed: {
+                        root.executeAction(inputQuery.text)
+                    }
+
+                    Keys.onEscapePressed: {
+                        if (siteInfoPopup.visible) {
+                            siteInfoPopup.visible = false;
+                        } else {
+                            root.isExpanded = false;
+                            bridge.launcherVisible = false;
+                        }
+                    }
+
+                    Component.onCompleted: {
+                        if (root.visible) {
+                            forceActiveFocus();
+                            selectAll();
                         }
                     }
                 }
@@ -326,13 +588,6 @@ Item {
                             }
                         }
                     }
-                }
-
-                Rectangle {
-                    width: parent.width
-                    height: 1
-                    anchors.bottom: parent.bottom
-                    color: Theme.border
                 }
             }
 
@@ -618,13 +873,6 @@ Item {
                 color: "transparent"
                 visible: root.isExpanded && inputQuery.text.trim().length === 0
 
-                Rectangle {
-                    width: parent.width
-                    height: 1
-                    anchors.top: parent.top
-                    color: Theme.border
-                }
-
                 Row {
                     anchors.verticalCenter: parent.verticalCenter
                     anchors.left: parent.left
@@ -811,6 +1059,24 @@ Item {
     signal switchTabRequested(int index)
     signal closeTabRequested(int index)
     signal webViewAction(string action)
+    signal flipSplitRequested()
+
+    function extractDomain(url) {
+        if (!url) return "";
+        try {
+            var match = url.match(/^(?:https?:\/\/)?(?:[^@\n]+@)?(?:www\.)?([^:\/\n?]+)/img);
+            if (match && match.length > 0) {
+                return match[0].replace(/^https?:\/\//i, '').replace(/^www\./i, '');
+            }
+        } catch(e) {}
+        return url;
+    }
+
+    function translateCurrentPage() {
+        if (!bridge.currentUrl || bridge.currentUrl.length === 0 || bridge.currentUrl === "about:blank") return;
+        var translateUrl = "https://translate.google.com/translate?sl=auto&tl=pt&u=" + encodeURIComponent(bridge.currentUrl);
+        root.openUrlInTab(translateUrl);
+    }
 
     function executeAction(text) {
         var query = text.trim();
@@ -953,14 +1219,32 @@ Item {
         } catch(e) {}
     }
 
+    onVisibleChanged: {
+        if (visible) {
+            inputQuery.text = (bridge.currentUrl && bridge.currentUrl !== "about:blank") ? bridge.currentUrl : "";
+            inputQuery.forceActiveFocus();
+            inputQuery.selectAll();
+        } else {
+            siteInfoPopup.visible = false;
+        }
+    }
+
     Connections {
         target: bridge
+        function onCurrentUrlChanged() {
+            if (!inputQuery.activeFocus) {
+                inputQuery.text = (bridge.currentUrl && bridge.currentUrl !== "about:blank") ? bridge.currentUrl : "";
+            }
+        }
+
         function onLauncherVisibleChanged() {
             if (bridge.launcherVisible) {
+                inputQuery.text = (bridge.currentUrl && bridge.currentUrl !== "about:blank") ? bridge.currentUrl : "";
                 inputQuery.forceActiveFocus();
                 inputQuery.selectAll();
             } else {
                 root.isExpanded = false;
+                siteInfoPopup.visible = false;
             }
         }
     }

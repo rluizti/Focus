@@ -12,6 +12,12 @@ pub struct BrowserConfig {
     pub restore_session: bool,
     pub zoom_level: f64,
     pub show_launcher_on_startup: bool,
+    #[serde(default = "default_true")]
+    pub enable_translation: bool,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 impl Default for BrowserConfig {
@@ -25,6 +31,7 @@ impl Default for BrowserConfig {
             restore_session: false,
             zoom_level: 1.0,
             show_launcher_on_startup: true,
+            enable_translation: true,
         }
     }
 }

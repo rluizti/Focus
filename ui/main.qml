@@ -15,6 +15,37 @@ Window {
     property bool devToolsOpen: false
     property int activeTabIndex: 0
     property string activeWebTitle: ""
+    property bool splitViewActive: false
+    property int splitTabIndex: 1
+    property string focusedPane: "left" // "left" or "right"
+
+    function toggleSplitView() {
+        if (!splitViewActive) {
+            splitViewActive = true;
+            if (tabsModel.count < 2) {
+                var newId = tabsModel.count + 1;
+                tabsModel.append({
+                    tabId: newId,
+                    title: "",
+                    url: "",
+                    workspace: (tabsModel.count > 0 && activeTabIndex < tabsModel.count) ? (tabsModel.get(activeTabIndex).workspace || "Principal") : "Principal"
+                });
+                splitTabIndex = tabsModel.count - 1;
+            } else {
+                splitTabIndex = (activeTabIndex + 1) % tabsModel.count;
+            }
+            focusedPane = "right";
+            var currentTab = tabsModel.get(splitTabIndex);
+            bridge.currentUrl = currentTab ? currentTab.url : "";
+            launcher.isExpanded = false;
+            bridge.launcherVisible = true;
+        } else {
+            splitViewActive = false;
+            focusedPane = "left";
+            var curTab = tabsModel.get(activeTabIndex);
+            bridge.currentUrl = curTab ? curTab.url : "";
+        }
+    }
 
     // Tabs Model for Multi-tab & Workspace management
     ListModel {
@@ -46,17 +77,53 @@ Window {
             z: 0
         }
 
-        // 100% CLEAN USEFUL AREA - Zero overlays on the web canvas
+        // 100% CLEAN USEFUL AREA - Zero overlays on the web canvas (Single or Split View)
         Repeater {
             id: tabsRepeater
             model: tabsModel
 
             delegate: Item {
+                id: tabItemDelegate
                 anchors.top: parent.top
-                anchors.left: parent.left
-                anchors.right: parent.right
                 anchors.bottom: devToolsDock.top
-                visible: index === window.activeTabIndex
+
+                readonly property bool isLeftPane: index === window.activeTabIndex
+                readonly property bool isRightPane: window.splitViewActive && index === window.splitTabIndex
+
+                visible: isLeftPane || isRightPane
+
+                // Dynamic width and positioning for split screen vs full screen
+                anchors.left: (!window.splitViewActive || isLeftPane) ? parent.left : undefined
+                anchors.right: (!window.splitViewActive || isRightPane) ? parent.right : undefined
+                width: window.splitViewActive ? ((parent.width - Theme.borderSize) / 2) : parent.width
+
+                // Active focus border in split view
+                Rectangle {
+                    anchors.fill: parent
+                    color: "transparent"
+                    border.color: (window.splitViewActive && ((isLeftPane && window.focusedPane === "left") || (isRightPane && window.focusedPane === "right"))) ? Theme.accent : "transparent"
+                    border.width: 1
+                    z: 50
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    z: 40
+                    acceptedButtons: Qt.LeftButton
+                    propagateComposedEvents: true
+                    onPressed: function(mouse) {
+                        if (isLeftPane) {
+                            window.focusedPane = "left";
+                            bridge.currentUrl = model.url;
+                            window.activeWebTitle = model.title;
+                        } else if (isRightPane) {
+                            window.focusedPane = "right";
+                            bridge.currentUrl = model.url;
+                            window.activeWebTitle = model.title;
+                        }
+                        mouse.accepted = false;
+                    }
+                }
 
                 // WebEngineView só renderiza quando existe uma URL válida
                 WebEngineView {
@@ -64,17 +131,17 @@ Window {
                     anchors.fill: parent
                     visible: model.url && model.url.length > 0 && model.url !== "about:blank"
                     url: model.url
-                    devToolsView: (window.devToolsOpen && index === window.activeTabIndex) ? devToolsView : null
+                    devToolsView: (window.devToolsOpen && ((isLeftPane && window.focusedPane === "left") || (isRightPane && window.focusedPane === "right"))) ? devToolsView : null
 
                     onUrlChanged: {
-                        if (index === window.activeTabIndex) {
+                        if ((isLeftPane && window.focusedPane === "left") || (isRightPane && window.focusedPane === "right")) {
                             bridge.currentUrl = url.toString();
                         }
                         tabsModel.setProperty(index, "url", url.toString());
                     }
 
                     onTitleChanged: {
-                        if (index === window.activeTabIndex) {
+                        if ((isLeftPane && window.focusedPane === "left") || (isRightPane && window.focusedPane === "right")) {
                             window.activeWebTitle = title;
                             bridge.pageTitle = title;
                         }
@@ -82,7 +149,7 @@ Window {
                     }
 
                     onLoadingChanged: function(loadRequest) {
-                        if (index === window.activeTabIndex) {
+                        if ((isLeftPane && window.focusedPane === "left") || (isRightPane && window.focusedPane === "right")) {
                             bridge.isLoading = (loadRequest.status === WebEngineView.LoadStartedStatus);
                         }
                     }
@@ -94,6 +161,18 @@ Window {
                     }
                 }
             }
+        }
+
+        // Vertical Divider for Split View
+        Rectangle {
+            id: splitDivider
+            width: Theme.borderSize
+            anchors.top: parent.top
+            anchors.bottom: devToolsDock.top
+            anchors.horizontalCenter: parent.horizontalCenter
+            color: Theme.border
+            visible: window.splitViewActive
+            z: 60
         }
 
         // Chrome DevTools Bottom Dock Panel (F12)
@@ -204,11 +283,14 @@ Window {
     Launcher {
         id: launcher
         tabsModel: tabsModel
-        activeTabIndex: window.activeTabIndex
+        activeTabIndex: (window.splitViewActive && window.focusedPane === "right") ? window.splitTabIndex : window.activeTabIndex
+
+        onFlipSplitRequested: window.toggleSplitView()
 
         onOpenUrlInTab: function(url) {
-            if (tabsModel.count > 0 && window.activeTabIndex < tabsModel.count) {
-                tabsModel.setProperty(window.activeTabIndex, "url", url);
+            var targetIndex = (window.splitViewActive && window.focusedPane === "right") ? window.splitTabIndex : window.activeTabIndex;
+            if (tabsModel.count > 0 && targetIndex < tabsModel.count) {
+                tabsModel.setProperty(targetIndex, "url", url);
                 bridge.currentUrl = url;
             }
         }
@@ -221,13 +303,21 @@ Window {
                 url: url,
                 workspace: workspace
             });
-            window.activeTabIndex = tabsModel.count - 1;
+            if (window.splitViewActive && window.focusedPane === "right") {
+                window.splitTabIndex = tabsModel.count - 1;
+            } else {
+                window.activeTabIndex = tabsModel.count - 1;
+            }
             bridge.currentUrl = url;
         }
 
         onSwitchTabRequested: function(index) {
             if (index >= 0 && index < tabsModel.count) {
-                window.activeTabIndex = index;
+                if (window.splitViewActive && window.focusedPane === "right") {
+                    window.splitTabIndex = index;
+                } else {
+                    window.activeTabIndex = index;
+                }
                 var currentTab = tabsModel.get(index);
                 bridge.currentUrl = currentTab.url;
                 window.activeWebTitle = currentTab.title;
@@ -239,6 +329,9 @@ Window {
                 tabsModel.remove(index);
                 if (window.activeTabIndex >= tabsModel.count) {
                     window.activeTabIndex = tabsModel.count - 1;
+                }
+                if (window.splitTabIndex >= tabsModel.count) {
+                    window.splitTabIndex = Math.max(0, tabsModel.count - 1);
                 }
                 var activeTab = tabsModel.get(window.activeTabIndex);
                 bridge.currentUrl = activeTab.url;
@@ -252,13 +345,18 @@ Window {
         }
 
         onWebViewAction: function(action) {
-            var activeItem = tabsRepeater.itemAt(window.activeTabIndex);
+            var targetIdx = (window.splitViewActive && window.focusedPane === "right") ? window.splitTabIndex : window.activeTabIndex;
+            var activeItem = tabsRepeater.itemAt(targetIdx);
             if (activeItem) {
-                var view = activeItem.children[0];
-                if (view) {
-                    if (action === "back") view.goBack();
-                    else if (action === "forward") view.goForward();
-                    else if (action === "reload") view.reload();
+                for (var i = 0; i < activeItem.children.length; i++) {
+                    var ch = activeItem.children[i];
+                    if (ch && ch.toString().indexOf("QQuickWebEngineView") !== -1) {
+                        if (action === "back") ch.goBack();
+                        else if (action === "forward") ch.goForward();
+                        else if (action === "reload") ch.reload();
+                        else if (action === "stop") ch.stop();
+                        break;
+                    }
                 }
             }
         }

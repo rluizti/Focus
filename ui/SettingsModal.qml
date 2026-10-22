@@ -426,6 +426,78 @@ Item {
                                 }
                             }
                         }
+
+                        // Tradução de Páginas
+                        Rectangle {
+                            width: parent.width
+                            height: 52
+                            radius: root.itemRadius
+                            color: Qt.rgba(1, 1, 1, 0.03)
+                            border.color: Theme.border
+                            border.width: 1
+
+                            Row {
+                                anchors.verticalCenter: parent.verticalCenter
+                                anchors.left: parent.left
+                                anchors.leftMargin: 16
+                                spacing: 12
+
+                                Glyph {
+                                    name: "type"
+                                    size: 16
+                                    color: (card.config.enable_translation !== false) ? Theme.accent : Theme.dimForeground
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+
+                                Column {
+                                    spacing: 2
+                                    Text {
+                                        text: "Botão de Tradução no Lançador"
+                                        color: Theme.foreground
+                                        font.pixelSize: Theme.fontBody
+                                        font.bold: true
+                                    }
+                                    Text {
+                                        text: "Exibir o botão de tradução rápida à direita da barra de endereços."
+                                        color: Theme.dimForeground
+                                        font.pixelSize: 11
+                                    }
+                                }
+                            }
+
+                            // Switch
+                            Rectangle {
+                                width: 40
+                                height: 22
+                                radius: 11
+                                anchors.right: parent.right
+                                anchors.rightMargin: 16
+                                anchors.verticalCenter: parent.verticalCenter
+                                color: (card.config.enable_translation !== false) ? Theme.accent : Qt.rgba(1, 1, 1, 0.1)
+
+                                Rectangle {
+                                    width: 16
+                                    height: 16
+                                    radius: 8
+                                    color: (card.config.enable_translation !== false) ? Theme.background : Theme.dimForeground
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    x: (card.config.enable_translation !== false) ? 21 : 3
+
+                                    Behavior on x {
+                                        NumberAnimation { duration: 120 }
+                                    }
+                                }
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: {
+                                        var current = card.config.enable_translation !== false;
+                                        card.updateConfig("enable_translation", !current);
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 
