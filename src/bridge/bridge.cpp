@@ -1,6 +1,7 @@
 #include "bridge.h"
 
 #include <QGuiApplication>
+#include <QFont>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickWindow>
@@ -404,13 +405,13 @@ void OmaBridge::reloadThemeFromDisk() {
     obj["dim_foreground"] = map.value("dark_foreground", "#8f8a8e");
     obj["accent"] = map.value("accent", "#b59790");
     obj["border"] = map.value("active_border_color", "#2d2a2c");
-    obj["active_border"] = map.value("active_border_color", "#cacccc");
+    obj["active_border"] = map.value("accent", map.value("active_border_color", "#ff9f0a"));
     obj["border_size"] = 2;
     obj["selection"] = map.value("selection", "#383335");
     obj["red"] = map.value("red", "#c38b7b");
     obj["green"] = map.value("green", "#87a9b0");
     obj["blue"] = map.value("blue", "#b59790");
-    obj["font_family"] = "Inter, monospace, sans-serif";
+    obj["font_family"] = "omarchy, Inter, sans-serif";
     obj["corner_radius"] = rounding; // Follows Omarchy theme rounding (0 for sharp, 6/8/12 for rounded)
 
     QJsonDocument doc(obj);
@@ -428,6 +429,32 @@ void OmaBridge::toggleSettings() {
 
 void OmaBridge::closeBrowser() {
     QGuiApplication::quit();
+}
+
+bool OmaBridge::isBitwardenInstalled() const {
+    return QFile::exists("/usr/bin/bitwarden-desktop") || QFile::exists("/usr/bin/bitwarden") || QFile::exists("/usr/bin/bw");
+}
+
+void OmaBridge::openBitwarden() {
+    if (QFile::exists("/usr/bin/bitwarden-desktop")) {
+        QProcess::startDetached("/usr/bin/bitwarden-desktop", QStringList());
+    } else if (QFile::exists("/usr/bin/bitwarden")) {
+        QProcess::startDetached("/usr/bin/bitwarden", QStringList());
+    } else if (QFile::exists("/usr/bin/bw")) {
+        QProcess::startDetached("xdg-open", QStringList() << "https://vault.bitwarden.com");
+    }
+}
+
+QString OmaBridge::getBitwardenStatus() {
+    if (!QFile::exists("/usr/bin/bw")) {
+        return "not_installed";
+    }
+    QProcess proc;
+    proc.start("/usr/bin/bw", QStringList() << "status");
+    if (proc.waitForFinished(1200)) {
+        return QString::fromUtf8(proc.readAllStandardOutput()).trimmed();
+    }
+    return "timeout";
 }
 
 #include <QKeyEvent>
@@ -493,6 +520,10 @@ int oma_run_gui(
     app.setApplicationName("Focus");
     app.setOrganizationName("Omarchy");
     app.setOrganizationDomain("omarchy.org");
+
+    QFont appFont("omarchy");
+    appFont.setStyleHint(QFont::SansSerif);
+    app.setFont(appFont);
 
     // 3. Configure WebEngine default profile for persistent cookies, logins, and cache
     QString dataPath = QDir::homePath() + "/.local/share/focus";

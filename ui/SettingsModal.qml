@@ -793,10 +793,141 @@ Item {
                             visible: text.length > 0
                         }
 
-                        Timer {
-                            id: importStatusTimer
-                            interval: 6000
-                            onTriggered: importStatusText.text = ""
+                        // Card de Integração com o Bitwarden (Gerenciador de Chaves Padrão)
+                        Rectangle {
+                            width: parent.width
+                            height: 60
+                            radius: root.itemRadius
+                            color: (card.config && card.config.bitwarden_enabled) ? Theme.selection : Qt.rgba(1, 1, 1, 0.03)
+                            border.color: (card.config && card.config.bitwarden_enabled) ? Theme.accent : Theme.border
+                            border.width: 1
+
+                            Row {
+                                anchors.fill: parent
+                                anchors.margins: 10
+                                spacing: 12
+
+                                Rectangle {
+                                    width: 38
+                                    height: 38
+                                    radius: root.itemRadius
+                                    color: (card.config && card.config.bitwarden_enabled) ? Theme.accent : Qt.rgba(1, 1, 1, 0.06)
+                                    anchors.verticalCenter: parent.verticalCenter
+
+                                    Glyph {
+                                        name: "shield"
+                                        size: 18
+                                        color: (card.config && card.config.bitwarden_enabled) ? Theme.background : Theme.foreground
+                                        anchors.centerIn: parent
+                                    }
+                                }
+
+                                Column {
+                                    width: parent.width - 200
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    spacing: 3
+
+                                    Row {
+                                        spacing: 8
+                                        Text {
+                                            text: "Bitwarden (Gerenciador de Chaves Padrão)"
+                                            color: Theme.foreground
+                                            font.bold: true
+                                            font.pixelSize: 13
+                                        }
+
+                                        Rectangle {
+                                            height: 16
+                                            width: 58
+                                            radius: 8
+                                            color: bridge.isBitwardenInstalled() ? Qt.rgba(0.2, 0.8, 0.4, 0.15) : Qt.rgba(0.8, 0.2, 0.2, 0.15)
+                                            border.color: bridge.isBitwardenInstalled() ? Theme.green : Theme.red
+                                            border.width: 1
+                                            anchors.verticalCenter: parent.verticalCenter
+
+                                            Text {
+                                                text: bridge.isBitwardenInstalled() ? "Instalado" : "Não achado"
+                                                font.pixelSize: 9
+                                                font.bold: true
+                                                color: bridge.isBitwardenInstalled() ? Theme.green : Theme.red
+                                                anchors.centerIn: parent
+                                            }
+                                        }
+                                    }
+
+                                    Text {
+                                        text: (card.config && card.config.bitwarden_enabled)
+                                            ? "Ativo como gerenciador padrão. Atalho direto no lançador e integração via /usr/bin/bw e app desktop."
+                                            : "Ative para utilizar o Bitwarden como seu gerenciador principal de senhas e chaves."
+                                        color: Theme.dimForeground
+                                        font.pixelSize: 11
+                                        elide: Text.ElideRight
+                                        width: parent.width
+                                    }
+                                }
+
+                                Row {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    spacing: 8
+
+                                    // Botão Abrir App Desktop
+                                    Rectangle {
+                                        width: 28
+                                        height: 28
+                                        radius: root.itemRadius
+                                        color: openBwMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.1) : Qt.rgba(1, 1, 1, 0.05)
+                                        border.color: Theme.border
+                                        border.width: 1
+                                        anchors.verticalCenter: parent.verticalCenter
+
+                                        Glyph {
+                                            name: "key"
+                                            size: 13
+                                            color: Theme.foreground
+                                            anchors.centerIn: parent
+                                        }
+
+                                        MouseArea {
+                                            id: openBwMouse
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: bridge.openBitwarden()
+                                        }
+                                    }
+
+                                    // Switch Toggle Ativar/Desativar
+                                    Rectangle {
+                                        width: 48
+                                        height: 24
+                                        radius: 12
+                                        color: (card.config && card.config.bitwarden_enabled) ? Theme.accent : Qt.rgba(1, 1, 1, 0.12)
+                                        anchors.verticalCenter: parent.verticalCenter
+
+                                        Rectangle {
+                                            width: 18
+                                            height: 18
+                                            radius: 9
+                                            color: (card.config && card.config.bitwarden_enabled) ? Theme.background : Theme.foreground
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            x: (card.config && card.config.bitwarden_enabled) ? (parent.width - width - 3) : 3
+
+                                            Behavior on x {
+                                                NumberAnimation { duration: 140; easing.type: Easing.OutCubic }
+                                            }
+                                        }
+
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: {
+                                                var cur = (card.config && card.config.bitwarden_enabled) ? true : false;
+                                                card.updateConfig("bitwarden_enabled", !cur);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
 
                         // Formulário Inline para adicionar senha

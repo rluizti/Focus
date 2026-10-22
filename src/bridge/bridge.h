@@ -84,6 +84,10 @@ public:
     Q_INVOKABLE void toggleSettings();
     Q_INVOKABLE void closeBrowser();
 
+    Q_INVOKABLE bool isBitwardenInstalled() const;
+    Q_INVOKABLE void openBitwarden();
+    Q_INVOKABLE QString getBitwardenStatus();
+
     void initThemeWatcher();
     void reloadThemeFromDisk();
 

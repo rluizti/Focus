@@ -35,13 +35,13 @@ impl Default for ThemeInfo {
             dim_foreground: "#8f8a8e".to_string(),
             accent: "#b59790".to_string(),
             border: "#3a3437".to_string(),
-            active_border: "#cacccc".to_string(),
+            active_border: "#ff9f0a".to_string(),
             border_size: 2,
             selection: "#584e51".to_string(),
             red: "#c38b7b".to_string(),
             green: "#87a9b0".to_string(),
             blue: "#b59790".to_string(),
-            font_family: "Inter, Roboto, sans-serif".to_string(),
+            font_family: "omarchy, Inter, sans-serif".to_string(),
             corner_radius: 8,
         }
     }

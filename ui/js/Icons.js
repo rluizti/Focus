@@ -154,6 +154,7 @@ var PATHS = {
     "lock": "M4 11h16v10H4z M8 11V7a4 4 0 0 1 8 0v4 M12 15h.01",
     // The compress submenu's With-password row: a bow ring, a shaft and two teeth; the bow is a true circle under the cut.
     "key": "M3 7a4 4 0 1 0 8 0a4 4 0 1 0-8 0 M10.5 10.5l8 8 M16 16l2.5-2.5 M18.5 18.5l1.5-1.5",
+    "shield": "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z",
     // The operations rows the archive and convert subsystems draw, from the spec's own glyph shelf.
     "archive-out": "M2 3h20v5H2z M4 8v13h16V8 M12 18v-6 M9 15l3-3 3 3",
     // The Move to Dropbox row, which the canvas draws with the network mark.

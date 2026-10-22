@@ -1067,60 +1067,35 @@ Item {
                     anchors.rightMargin: 12
                     spacing: 8
 
-                    // Botão Voltar
+                    // Botão Bitwarden (visível se habilitado nas configurações)
                     Rectangle {
                         height: 26
-                        width: 28
+                        width: 95
                         radius: root.itemRadius
-                        color: Qt.rgba(1, 1, 1, 0.05)
-                        border.color: Theme.border
+                        color: bitwardenMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(1, 1, 1, 0.04)
+                        border.color: Theme.accent
                         border.width: 1
                         anchors.verticalCenter: parent.verticalCenter
-
-                        Glyph { name: "arrow-left"; size: 12; color: Theme.foreground; anchors.centerIn: parent }
-
-                        MouseArea {
-                            anchors.fill: parent
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: { bridge.launcherVisible = false; webViewAction("back"); }
+                        visible: {
+                            try {
+                                var cfg = JSON.parse(bridge.configJson);
+                                return cfg.bitwarden_enabled === true;
+                            } catch(e) { return false; }
                         }
-                    }
 
-                    // Botão Avançar
-                    Rectangle {
-                        height: 26
-                        width: 28
-                        radius: root.itemRadius
-                        color: Qt.rgba(1, 1, 1, 0.05)
-                        border.color: Theme.border
-                        border.width: 1
-                        anchors.verticalCenter: parent.verticalCenter
-
-                        Glyph { name: "arrow-right"; size: 12; color: Theme.foreground; anchors.centerIn: parent }
-
-                        MouseArea {
-                            anchors.fill: parent
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: { bridge.launcherVisible = false; webViewAction("forward"); }
+                        Row {
+                            anchors.centerIn: parent
+                            spacing: 5
+                            Glyph { name: "shield"; size: 12; color: Theme.accent; anchors.verticalCenter: parent.verticalCenter }
+                            Text { text: "Bitwarden"; color: Theme.accent; font.pixelSize: 11; font.bold: true; anchors.verticalCenter: parent.verticalCenter }
                         }
-                    }
-
-                    // Botão Recarregar
-                    Rectangle {
-                        height: 26
-                        width: 28
-                        radius: root.itemRadius
-                        color: Qt.rgba(1, 1, 1, 0.05)
-                        border.color: Theme.border
-                        border.width: 1
-                        anchors.verticalCenter: parent.verticalCenter
-
-                        Glyph { name: "refresh"; size: 12; color: Theme.foreground; anchors.centerIn: parent }
 
                         MouseArea {
+                            id: bitwardenMouse
                             anchors.fill: parent
+                            hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
-                            onClicked: { bridge.launcherVisible = false; webViewAction("reload"); }
+                            onClicked: bridge.openBitwarden()
                         }
                     }
 
