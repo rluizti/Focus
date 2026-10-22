@@ -120,6 +120,16 @@ void OmaBridge::setSettingsVisible(bool val) {
 void OmaBridge::saveConfig(const QString &json) {
     m_configJson = json;
     emit configJsonChanged();
+
+    // Dynamically update Accept-Language in WebEngine profile if language was changed
+    QJsonDocument doc = QJsonDocument::fromJson(json.toUtf8());
+    if (doc.isObject()) {
+        QString lang = doc.object().value("language").toString();
+        if (!lang.isEmpty()) {
+            QWebEngineProfile::defaultProfile()->setHttpAcceptLanguage(lang);
+        }
+    }
+
     if (m_callbacks.onConfigSaved) {
         QByteArray utf8 = json.toUtf8();
         m_callbacks.onConfigSaved(utf8.constData());
@@ -535,6 +545,17 @@ int oma_run_gui(
     profile->setPersistentCookiesPolicy(QWebEngineProfile::ForcePersistentCookies);
     profile->setCachePath(dataPath + "/cache");
     profile->setHttpCacheType(QWebEngineProfile::DiskHttpCache);
+
+    // Initial Accept-Language (defaults to English "en-US,en;q=0.9")
+    if (initial_config_json) {
+        QJsonDocument cfgDoc = QJsonDocument::fromJson(QByteArray(initial_config_json));
+        if (cfgDoc.isObject()) {
+            QString lang = cfgDoc.object().value("language").toString("en-US");
+            profile->setHttpAcceptLanguage(lang);
+        }
+    } else {
+        profile->setHttpAcceptLanguage("en-US");
+    }
 
     QWebEngineSettings *settings = profile->settings();
     settings->setAttribute(QWebEngineSettings::PluginsEnabled, true);

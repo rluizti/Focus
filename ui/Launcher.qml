@@ -22,6 +22,7 @@ Item {
             onClicked: {
                 bridge.launcherVisible = false;
                 root.isExpanded = false;
+                root.isSiteConfigExpanded = false;
             }
         }
     }
@@ -31,6 +32,7 @@ Item {
     property string activeWorkspace: "Principal"
     // Pinned rows only appear when user clicks to expand the box
     property bool isExpanded: false
+    property bool isSiteConfigExpanded: false
     readonly property int itemRadius: Theme.cornerRadius > 0 ? Math.max(2, Theme.cornerRadius - 2) : 0
 
     property var cardConfig: {
@@ -75,19 +77,22 @@ Item {
         clip: true
 
         // Dynamic height:
+        // Dynamic height:
         // 1. Typing: expands to fit search results
         // 2. Expanded (user clicked expand): input + 2 rows pinned + workspaces/tabs + bottom quick bar
-        // 3. Resting: ONLY typing input box (50px)!
+        // 3. Site config expanded: adds 140px full width, pushing content down!
+        // 4. Resting: ONLY typing input box (50px)!
         height: {
-            if (root.isExpanded) {
-                // Expande completamente mesmo se estiver digitando!
-                // Input (50) + Pinned 2 rows (94) + Tabs (140) + Bottom bar (42) = 326px
-                return 50 + 94 + 140 + 42;
-            } else if (inputQuery.text.trim().length > 0) {
-                return Math.min(460, 50 + resultsModel.count * 42);
-            } else {
-                return 50;
+            var total = 50;
+            if (root.isSiteConfigExpanded) {
+                total += 140;
             }
+            if (root.isExpanded) {
+                total += 94 + 140 + 42;
+            } else if (inputQuery.text.trim().length > 0) {
+                total = Math.min(460, total + resultsModel.count * 42);
+            }
+            return total;
         }
 
         Behavior on anchors.topMargin {
@@ -100,102 +105,7 @@ Item {
         // Swallowing clicks
         MouseArea {
             anchors.fill: parent
-            onClicked: {
-                if (siteInfoPopup.visible) siteInfoPopup.visible = false;
-            }
-        }
-
-        // Site Configuration & Security Popup (Page Settings)
-        Rectangle {
-            id: siteInfoPopup
-            width: 290
-            height: 185
-            anchors.top: parent.top
-            anchors.topMargin: 52
-            anchors.left: parent.left
-            anchors.leftMargin: 10
-            radius: root.itemRadius
-            color: Theme.surface
-            border.color: Theme.activeBorder
-            border.width: Theme.borderSize
-            visible: false
-            z: 999
-
-            Column {
-                anchors.fill: parent
-                anchors.margins: 12
-                spacing: 8
-
-                Row {
-                    spacing: 8
-                    Glyph {
-                        name: (bridge.currentUrl && bridge.currentUrl.indexOf("https://") === 0) ? "lock" : "alert"
-                        size: 16
-                        color: (bridge.currentUrl && bridge.currentUrl.indexOf("https://") === 0) ? Theme.green : Theme.red
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-                    Column {
-                        Text {
-                            text: root.extractDomain(bridge.currentUrl) || "Informações da Página"
-                            color: Theme.foreground
-                            font.pixelSize: 13
-                            font.bold: true
-                        }
-                        Text {
-                            text: (bridge.currentUrl && bridge.currentUrl.indexOf("https://") === 0) ? "Conexão segura (HTTPS)" : "Conexão não criptografada"
-                            color: Theme.dimForeground
-                            font.pixelSize: 11
-                        }
-                    }
-                }
-
-                Rectangle { width: parent.width; height: 1; color: Theme.border }
-
-                Text {
-                    text: "Permissões do site:"
-                    color: Theme.dimForeground
-                    font.pixelSize: 11
-                }
-
-                Row {
-                    spacing: 6
-                    Glyph { name: "check"; size: 11; color: Theme.accent; anchors.verticalCenter: parent.verticalCenter }
-                    Text { text: "Cookies e armazenamento: Permitido"; color: Theme.foreground; font.pixelSize: 11 }
-                }
-
-                Row {
-                    spacing: 6
-                    Glyph { name: "check"; size: 11; color: Theme.accent; anchors.verticalCenter: parent.verticalCenter }
-                    Text { text: "JavaScript & Hardware Canvas: Ativo"; color: Theme.foreground; font.pixelSize: 11 }
-                }
-
-                Rectangle {
-                    width: parent.width
-                    height: 26
-                    radius: root.itemRadius
-                    color: clearSiteDataMouse.containsMouse ? Theme.selection : Qt.rgba(1, 1, 1, 0.05)
-                    border.color: clearSiteDataMouse.containsMouse ? Theme.accent : Theme.border
-                    border.width: 1
-
-                    Text {
-                        text: "Recarregar limpando cache"
-                        color: Theme.foreground
-                        font.pixelSize: 11
-                        anchors.centerIn: parent
-                    }
-
-                    MouseArea {
-                        id: clearSiteDataMouse
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: {
-                            siteInfoPopup.visible = false;
-                            root.webViewAction("reload");
-                        }
-                    }
-                }
-            }
+            onClicked: {}
         }
 
         Column {
@@ -245,8 +155,8 @@ Item {
                     anchors.left: parent.left
                     anchors.leftMargin: 12
                     anchors.verticalCenter: parent.verticalCenter
-                    color: siteConfigMouse.containsMouse || siteInfoPopup.visible ? Theme.selection : "transparent"
-                    border.color: siteConfigMouse.containsMouse || siteInfoPopup.visible ? Theme.accent : "transparent"
+                    color: siteConfigMouse.containsMouse || root.isSiteConfigExpanded ? Theme.selection : "transparent"
+                    border.color: siteConfigMouse.containsMouse || root.isSiteConfigExpanded ? Theme.accent : "transparent"
                     border.width: 1
 
                     Glyph {
@@ -264,7 +174,7 @@ Item {
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
                         onClicked: {
-                            siteInfoPopup.visible = !siteInfoPopup.visible;
+                            root.isSiteConfigExpanded = !root.isSiteConfigExpanded;
                         }
                     }
                 }
@@ -497,8 +407,8 @@ Item {
                     }
 
                     Keys.onEscapePressed: {
-                        if (siteInfoPopup.visible) {
-                            siteInfoPopup.visible = false;
+                        if (root.isSiteConfigExpanded) {
+                            root.isSiteConfigExpanded = false;
                         } else {
                             root.isExpanded = false;
                             bridge.launcherVisible = false;
@@ -509,6 +419,146 @@ Item {
                         if (root.visible) {
                             forceActiveFocus();
                             selectAll();
+                        }
+                    }
+                }
+            }
+
+            // SITE CONFIGURATION INLINE PANEL (Expande na largura total, empurrando o conteúdo para baixo)
+            Rectangle {
+                id: siteConfigExpandedPanel
+                width: parent.width
+                height: root.isSiteConfigExpanded ? 140 : 0
+                clip: true
+                visible: height > 0
+                color: Qt.rgba(0, 0, 0, 0.15)
+
+                Behavior on height {
+                    NumberAnimation { duration: 160; easing.type: Easing.OutCubic }
+                }
+
+                Rectangle {
+                    width: parent.width
+                    height: 1
+                    color: Theme.border
+                    anchors.top: parent.top
+                }
+
+                Column {
+                    anchors.fill: parent
+                    anchors.margins: 14
+                    spacing: 12
+
+                    Row {
+                        width: parent.width
+                        spacing: 12
+
+                        Rectangle {
+                            width: 34
+                            height: 34
+                            radius: root.itemRadius
+                            color: (bridge.currentUrl && bridge.currentUrl.indexOf("https://") === 0) ? Qt.rgba(0.2, 0.8, 0.4, 0.15) : Qt.rgba(0.8, 0.2, 0.2, 0.15)
+                            border.color: (bridge.currentUrl && bridge.currentUrl.indexOf("https://") === 0) ? Theme.green : Theme.red
+                            border.width: 1
+                            anchors.verticalCenter: parent.verticalCenter
+
+                            Glyph {
+                                name: (bridge.currentUrl && bridge.currentUrl.indexOf("https://") === 0) ? "lock" : "alert"
+                                size: 16
+                                color: (bridge.currentUrl && bridge.currentUrl.indexOf("https://") === 0) ? Theme.green : Theme.red
+                                anchors.centerIn: parent
+                            }
+                        }
+
+                        Column {
+                            width: parent.width - 230
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: 3
+
+                            Text {
+                                text: root.extractDomain(bridge.currentUrl) || "Configurações da Página"
+                                color: Theme.foreground
+                                font.pixelSize: 13
+                                font.bold: true
+                                elide: Text.ElideRight
+                                width: parent.width
+                            }
+
+                            Text {
+                                text: (bridge.currentUrl && bridge.currentUrl.indexOf("https://") === 0)
+                                    ? "Conexão segura (HTTPS) • Certificado Válido"
+                                    : ((bridge.currentUrl && bridge.currentUrl.indexOf("http://") === 0)
+                                        ? "Atenção: Conexão não criptografada (HTTP)"
+                                        : "Página interna do navegador")
+                                color: (bridge.currentUrl && bridge.currentUrl.indexOf("https://") === 0) ? Theme.green : Theme.dimForeground
+                                font.pixelSize: 11
+                                elide: Text.ElideRight
+                                width: parent.width
+                            }
+                        }
+
+                        // Botão Recarregar Limpando Cache
+                        Rectangle {
+                            height: 28
+                            width: 170
+                            radius: root.itemRadius
+                            color: clearSiteDataMouse.containsMouse ? Theme.selection : Qt.rgba(1, 1, 1, 0.05)
+                            border.color: clearSiteDataMouse.containsMouse ? Theme.accent : Theme.border
+                            border.width: 1
+                            anchors.verticalCenter: parent.verticalCenter
+
+                            Row {
+                                anchors.centerIn: parent
+                                spacing: 6
+                                Glyph { name: "refresh"; size: 11; color: Theme.accent; anchors.verticalCenter: parent.verticalCenter }
+                                Text {
+                                    text: "Limpar Cache & Recarregar"
+                                    color: Theme.foreground
+                                    font.pixelSize: 11
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+                            }
+
+                            MouseArea {
+                                id: clearSiteDataMouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: {
+                                    root.webViewAction("reload");
+                                    root.isSiteConfigExpanded = false;
+                                }
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        width: parent.width
+                        height: 1
+                        color: Qt.rgba(1, 1, 1, 0.06)
+                    }
+
+                    // Permissões do Site
+                    Row {
+                        width: parent.width
+                        spacing: 24
+
+                        Row {
+                            spacing: 6
+                            Glyph { name: "check"; size: 12; color: Theme.accent; anchors.verticalCenter: parent.verticalCenter }
+                            Text { text: "Armazenamento & Cookies: Permitido"; color: Theme.foreground; font.pixelSize: 11 }
+                        }
+
+                        Row {
+                            spacing: 6
+                            Glyph { name: "check"; size: 12; color: Theme.accent; anchors.verticalCenter: parent.verticalCenter }
+                            Text { text: "JavaScript & Canvas: Ativo"; color: Theme.foreground; font.pixelSize: 11 }
+                        }
+
+                        Row {
+                            spacing: 6
+                            Glyph { name: "shield"; size: 12; color: Theme.accent; anchors.verticalCenter: parent.verticalCenter }
+                            Text { text: "Isolamento Seguro: Ativo"; color: Theme.foreground; font.pixelSize: 11 }
                         }
                     }
                 }
@@ -1383,7 +1433,7 @@ Item {
             inputQuery.forceActiveFocus();
             inputQuery.selectAll();
         } else {
-            siteInfoPopup.visible = false;
+            root.isSiteConfigExpanded = false;
         }
     }
 
@@ -1402,7 +1452,7 @@ Item {
                 inputQuery.selectAll();
             } else {
                 root.isExpanded = false;
-                siteInfoPopup.visible = false;
+                root.isSiteConfigExpanded = false;
             }
         }
     }

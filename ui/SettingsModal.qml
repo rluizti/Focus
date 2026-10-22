@@ -68,12 +68,15 @@ Item {
                     hardware_acceleration: true,
                     dark_mode: true,
                     zoom_level: 1.0,
-                    theme_mode: "system"
+                    theme_mode: "system",
+                    language: "en-US",
+                    bitwarden_enabled: false
                 }
             }
         }
 
         property string currentThemeMode: (card.config && card.config.theme_mode) ? card.config.theme_mode : "system"
+        property string currentLanguage: (card.config && card.config.language) ? card.config.language : "en-US"
 
         Connections {
             target: bridge
@@ -81,6 +84,7 @@ Item {
                 try {
                     card.config = JSON.parse(bridge.configJson);
                     card.currentThemeMode = (card.config && card.config.theme_mode) ? card.config.theme_mode : "system";
+                    card.currentLanguage = (card.config && card.config.language) ? card.config.language : "en-US";
                 } catch(e) {
                     card.config = {};
                 }
@@ -98,6 +102,8 @@ Item {
             card.config = c;
             if (key === "theme_mode") {
                 card.currentThemeMode = value;
+            } else if (key === "language") {
+                card.currentLanguage = value;
             }
             bridge.saveConfig(JSON.stringify(c));
         }
@@ -165,6 +171,7 @@ Item {
                         model: [
                             { id: "engine", label: "Motor Web", glyph: "globe" },
                             { id: "search", label: "Pesquisa", glyph: "search" },
+                            { id: "languages", label: "Idiomas", glyph: "type" },
                             { id: "sync", label: "Conta & Sync", glyph: "lock" },
                             { id: "passwords", label: "Senhas", glyph: "key" },
                             { id: "appearance", label: "Aparência", glyph: "contrast" },
@@ -518,6 +525,144 @@ Item {
                                     onClicked: {
                                         var current = card.config.enable_translation !== false;
                                         card.updateConfig("enable_translation", !current);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Section: Idiomas (Languages)
+                Item {
+                    id: paneLanguages
+                    anchors.fill: parent
+                    anchors.margins: 28
+                    visible: card.activeSection === "languages"
+
+                    Column {
+                        spacing: 14
+                        width: parent.width
+
+                        Text {
+                            text: "Idiomas do Navegador"
+                            color: Theme.foreground
+                            font.pixelSize: 18
+                            font.bold: true
+                        }
+
+                        Text {
+                            text: "Selecione o idioma preferencial para páginas da web e requisições HTTP (Accept-Language). O Focus utiliza o Inglês (English) como idioma padrão."
+                            color: Theme.dimForeground
+                            font.pixelSize: Theme.fontBody
+                            width: parent.width
+                            wrapMode: Text.WordWrap
+                        }
+
+                        // Lista com rolagem
+                        Flickable {
+                            width: parent.width
+                            height: 320
+                            contentWidth: width
+                            contentHeight: langColumn.height
+                            clip: true
+
+                            Column {
+                                id: langColumn
+                                width: parent.width
+                                spacing: 8
+
+                                Repeater {
+                                    model: [
+                                        { code: "en-US", name: "English (US)", nativeName: "English (United States)", desc: "Idioma Padrão do Navegador (Default)", flag: "🇺🇸" },
+                                        { code: "pt-BR", name: "Português (Brasil)", nativeName: "Português Brasileiro", desc: "Suporte completo e termos em português", flag: "🇧🇷" },
+                                        { code: "es-ES", name: "Español", nativeName: "Español Internacional", desc: "Castellano / América Latina", flag: "🇪🇸" },
+                                        { code: "fr-FR", name: "Français", nativeName: "Français (France)", desc: "Français standard", flag: "🇫🇷" },
+                                        { code: "de-DE", name: "Deutsch", nativeName: "Deutsch (Deutschland)", desc: "Standarddeutsch", flag: "🇩🇪" },
+                                        { code: "it-IT", name: "Italiano", nativeName: "Italiano (Italia)", desc: "Italiano standard", flag: "🇮🇹" },
+                                        { code: "ja-JP", name: "日本語", nativeName: "日本語 (Japanese)", desc: "Nihongo (Japan)", flag: "🇯🇵" },
+                                        { code: "zh-CN", name: "简体中文", nativeName: "中文 (Chinese)", desc: "Mandarin Simplified", flag: "🇨🇳" }
+                                    ]
+
+                                    Rectangle {
+                                        width: langColumn.width
+                                        height: 48
+                                        radius: root.itemRadius
+                                        color: card.currentLanguage === modelData.code ? Theme.selection : (langMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.04) : Qt.rgba(1, 1, 1, 0.02))
+                                        border.color: card.currentLanguage === modelData.code ? Theme.accent : Theme.border
+                                        border.width: card.currentLanguage === modelData.code ? 2 : 1
+
+                                        MouseArea {
+                                            id: langMouse
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: {
+                                                card.updateConfig("language", modelData.code);
+                                            }
+                                        }
+
+                                        Row {
+                                            anchors.fill: parent
+                                            anchors.margins: 12
+                                            spacing: 12
+
+                                            Text {
+                                                text: modelData.flag
+                                                font.pixelSize: 18
+                                                anchors.verticalCenter: parent.verticalCenter
+                                            }
+
+                                            Column {
+                                                anchors.verticalCenter: parent.verticalCenter
+                                                spacing: 2
+                                                width: parent.width - 90
+
+                                                Row {
+                                                    spacing: 8
+                                                    Text {
+                                                        text: modelData.name
+                                                        color: Theme.foreground
+                                                        font.bold: true
+                                                        font.pixelSize: 13
+                                                    }
+                                                    Text {
+                                                        text: "• " + modelData.nativeName
+                                                        color: Theme.dimForeground
+                                                        font.pixelSize: 11
+                                                    }
+                                                    Rectangle {
+                                                        height: 16
+                                                        width: 54
+                                                        radius: 8
+                                                        color: Theme.accent
+                                                        visible: modelData.code === "en-US"
+                                                        anchors.verticalCenter: parent.verticalCenter
+
+                                                        Text {
+                                                            text: "PADRÃO"
+                                                            font.pixelSize: 9
+                                                            font.bold: true
+                                                            color: Theme.background
+                                                            anchors.centerIn: parent
+                                                        }
+                                                    }
+                                                }
+
+                                                Text {
+                                                    text: modelData.desc
+                                                    color: Theme.dimForeground
+                                                    font.pixelSize: 11
+                                                }
+                                            }
+
+                                            Glyph {
+                                                name: "check"
+                                                size: 14
+                                                color: Theme.accent
+                                                visible: card.currentLanguage === modelData.code
+                                                anchors.verticalCenter: parent.verticalCenter
+                                            }
+                                        }
                                     }
                                 }
                             }

@@ -18,6 +18,8 @@ pub struct BrowserConfig {
     pub theme_mode: String,          // "system", "dark", "light"
     #[serde(default = "default_false")]
     pub bitwarden_enabled: bool,
+    #[serde(default = "default_language")]
+    pub language: String,
 }
 
 fn default_true() -> bool {
@@ -30,6 +32,10 @@ fn default_false() -> bool {
 
 fn default_theme_mode() -> String {
     "system".to_string()
+}
+
+fn default_language() -> String {
+    "en-US".to_string()
 }
 
 impl Default for BrowserConfig {
@@ -46,6 +52,7 @@ impl Default for BrowserConfig {
             enable_translation: true,
             theme_mode: "system".to_string(),
             bitwarden_enabled: false,
+            language: "en-US".to_string(),
         }
     }
 }
