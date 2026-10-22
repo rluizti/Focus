@@ -10,6 +10,12 @@
 #include <QStandardPaths>
 #include <QDir>
 #include <QProcess>
+#include <QFileSystemWatcher>
+#include <QTimer>
+#include <QFile>
+#include <QTextStream>
+#include <QJsonObject>
+#include <QJsonDocument>
 #include <iostream>
 
 OmaBridge *OmaBridge::s_instance = nullptr;
@@ -153,6 +159,86 @@ void OmaBridge::launchFirefox(const QString &url) {
     }
 }
 
+void OmaBridge::initThemeWatcher() {
+    m_themeWatcher = new QFileSystemWatcher(this);
+    QString stateDir = QDir::homePath() + "/.local/state/omarchy/current";
+    QString themeNamePath = stateDir + "/theme.name";
+    QString colorsPath = stateDir + "/theme/colors.toml";
+
+    if (QFile::exists(themeNamePath)) m_themeWatcher->addPath(themeNamePath);
+    if (QFile::exists(colorsPath)) m_themeWatcher->addPath(colorsPath);
+    if (QDir(stateDir).exists()) m_themeWatcher->addPath(stateDir);
+
+    connect(m_themeWatcher, &QFileSystemWatcher::fileChanged, this, &OmaBridge::onThemeFilesChanged);
+    connect(m_themeWatcher, &QFileSystemWatcher::directoryChanged, this, &OmaBridge::onThemeFilesChanged);
+
+    m_themeTimer = new QTimer(this);
+    connect(m_themeTimer, &QTimer::timeout, this, &OmaBridge::checkThemeUpdates);
+    m_themeTimer->start(600); // 600ms polling guarantees detection even with atomic symlink swaps
+}
+
+void OmaBridge::onThemeFilesChanged() {
+    reloadThemeFromDisk();
+}
+
+void OmaBridge::checkThemeUpdates() {
+    QString themeNamePath = QDir::homePath() + "/.local/state/omarchy/current/theme.name";
+    QFile file(themeNamePath);
+    if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        QString currentName = QString::fromUtf8(file.readAll()).trimmed();
+        file.close();
+        if (!currentName.isEmpty() && currentName != m_lastThemeName) {
+            m_lastThemeName = currentName;
+            reloadThemeFromDisk();
+        }
+    }
+}
+
+void OmaBridge::reloadThemeFromDisk() {
+    QString colorsPath = QDir::homePath() + "/.local/state/omarchy/current/theme/colors.toml";
+    QFile file(colorsPath);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return;
+    }
+
+    QMap<QString, QString> map;
+    QTextStream in(&file);
+    while (!in.atEnd()) {
+        QString line = in.readLine().trimmed();
+        if (line.isEmpty() || line.startsWith('#')) continue;
+        int eq = line.indexOf('=');
+        if (eq > 0) {
+            QString key = line.left(eq).trimmed();
+            QString val = line.mid(eq + 1).trimmed();
+            if (val.startsWith('"') && val.endsWith('"') && val.length() >= 2) {
+                val = val.mid(1, val.length() - 2);
+            }
+            map[key] = val;
+        }
+    }
+    file.close();
+
+    QJsonObject obj;
+    obj["mode"] = map.value("mode", "dark");
+    obj["background"] = map.value("background", "#0c0b0c");
+    obj["surface"] = map.value("dark_background", map.value("background", "#121113"));
+    obj["surface_variant"] = map.value("muted", "#1a191c");
+    obj["foreground"] = map.value("foreground", "#FAFCFB");
+    obj["dim_foreground"] = map.value("dark_foreground", "#8f8a8e");
+    obj["accent"] = map.value("accent", "#b59790");
+    obj["border"] = map.value("active_border_color", "#2d2a2c");
+    obj["selection"] = map.value("selection", "#383335");
+    obj["red"] = map.value("red", "#c38b7b");
+    obj["green"] = map.value("green", "#87a9b0");
+    obj["blue"] = map.value("blue", "#b59790");
+    obj["font_family"] = "Inter, monospace, sans-serif";
+    obj["corner_radius"] = 0; // Omarchy straight square corners
+
+    QJsonDocument doc(obj);
+    QString jsonStr = QString::fromUtf8(doc.toJson(QJsonDocument::Compact));
+    setThemeJson(jsonStr);
+}
+
 void OmaBridge::toggleLauncher() {
     setLauncherVisible(!m_launcherVisible);
 }
@@ -211,6 +297,7 @@ int oma_run_gui(
     // 4. Set up Bridge instance and initial data
     OmaBridge *bridge = OmaBridge::instance();
     bridge->setCallbacks(callbacks);
+    bridge->initThemeWatcher();
 
     if (initial_theme_json) {
         bridge->setThemeJson(QString::fromUtf8(initial_theme_json));

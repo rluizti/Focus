@@ -12,13 +12,22 @@ Window {
     title: activeWebTitle ? (activeWebTitle + " — Focus") : "Focus"
     color: Theme.background
 
+    // Omarchy Inactive Opacity Effect:
+    // Transparente (0.85) quando fora de foco e sem o mouse por cima;
+    // Sem transparência (1.0) quando em foco ou quando o cursor está sobre a janela.
+    opacity: (window.active || rootMouseDetector.containsMouse) ? 1.0 : 0.85
+
+    Behavior on opacity {
+        NumberAnimation { duration: 160 }
+    }
+
     // Tabs Model for Multi-tab & Workspace management
     ListModel {
         id: tabsModel
         ListElement {
             tabId: 1
-            title: "Google"
-            url: "https://www.google.com"
+            title: ""
+            url: ""  // Inicialmente NADA no fundo (canvas limpo!)
             workspace: "Principal"
         }
     }
@@ -26,8 +35,16 @@ Window {
     property int activeTabIndex: 0
     property string activeWebTitle: ""
 
-    // 100% CLEAN USEFUL AREA - WebEngineView occupies the entire screen
-    // Multiple tabs hosted cleanly
+    // Global Mouse Detection for hover opacity
+    MouseArea {
+        id: rootMouseDetector
+        anchors.fill: parent
+        hoverEnabled: true
+        acceptedButtons: Qt.NoButton
+        z: 0
+    }
+
+    // 100% CLEAN USEFUL AREA - Zero overlays on the web canvas
     Repeater {
         id: tabsRepeater
         model: tabsModel
@@ -36,9 +53,11 @@ Window {
             anchors.fill: parent
             visible: index === window.activeTabIndex
 
+            // WebEngineView só renderiza quando existe uma URL válida
             WebEngineView {
                 id: webView
                 anchors.fill: parent
+                visible: model.url.length > 0 && model.url !== "about:blank"
                 url: model.url
 
                 profile: WebEngineProfile.defaultProfile
@@ -99,7 +118,7 @@ Window {
             var newId = tabsModel.count + 1;
             tabsModel.append({
                 tabId: newId,
-                title: "Nova Aba",
+                title: url ? "" : "Nova Aba",
                 url: url,
                 workspace: workspace
             });
@@ -125,6 +144,25 @@ Window {
                 var activeTab = tabsModel.get(window.activeTabIndex);
                 bridge.currentUrl = activeTab.url;
                 window.activeWebTitle = activeTab.title;
+            } else if (tabsModel.count === 1) {
+                // If closing last tab, reset to blank
+                tabsModel.setProperty(0, "url", "");
+                tabsModel.setProperty(0, "title", "");
+                bridge.currentUrl = "";
+                window.activeWebTitle = "";
+            }
+        }
+
+        onWebViewAction: function(action) {
+            // Forward action to active WebEngineView
+            var activeItem = tabsRepeater.itemAt(window.activeTabIndex);
+            if (activeItem) {
+                var view = activeItem.children[0];
+                if (view) {
+                    if (action === "back") view.goBack();
+                    else if (action === "forward") view.goForward();
+                    else if (action === "reload") view.reload();
+                }
             }
         }
     }
@@ -148,7 +186,7 @@ Window {
                 bridge.launcherVisible = true;
                 event.accepted = true;
             } else if (event.key === Qt.Key_T && (event.modifiers & Qt.ControlModifier)) {
-                launcher.tabsDrawerOpen = true;
+                launcher.isExpanded = true;
                 bridge.launcherVisible = true;
                 event.accepted = true;
             } else if (event.key === Qt.Key_Comma && (event.modifiers & Qt.ControlModifier)) {
@@ -171,7 +209,7 @@ Window {
         function onCurrentUrlChanged() {
             if (tabsModel.count > 0 && window.activeTabIndex < tabsModel.count) {
                 var currentTab = tabsModel.get(window.activeTabIndex);
-                if (currentTab.url !== bridge.currentUrl) {
+                if (currentTab.url !== bridge.currentUrl && bridge.currentUrl.length > 0) {
                     tabsModel.setProperty(window.activeTabIndex, "url", bridge.currentUrl);
                 }
             }

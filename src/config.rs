@@ -19,7 +19,7 @@ impl Default for BrowserConfig {
         Self {
             default_engine: "chromium".to_string(),
             search_engine: "google".to_string(),
-            home_url: "https://www.google.com".to_string(),
+            home_url: "".to_string(),
             hardware_acceleration: true,
             dark_mode: true,
             restore_session: false,

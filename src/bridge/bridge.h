@@ -78,6 +78,9 @@ public:
     Q_INVOKABLE void toggleSettings();
     Q_INVOKABLE void closeBrowser();
 
+    void initThemeWatcher();
+    void reloadThemeFromDisk();
+
 signals:
     void themeJsonChanged();
     void configJsonChanged();
@@ -94,17 +97,25 @@ signals:
     void navigateRequested(const QString &url);
     void newTabRequested(const QString &url);
 
+private slots:
+    void onThemeFilesChanged();
+    void checkThemeUpdates();
+
 private:
     static OmaBridge *s_instance;
     RustCallbacks m_callbacks;
+
+    class QFileSystemWatcher *m_themeWatcher = nullptr;
+    class QTimer *m_themeTimer = nullptr;
+    QString m_lastThemeName;
 
     QString m_themeJson;
     QString m_configJson;
     QString m_bookmarksJson;
     QString m_historyJson;
     QString m_currentEngine = "chromium";
-    QString m_currentUrl = "https://www.google.com";
-    QString m_pageTitle = "OmaBrowser";
+    QString m_currentUrl = "";
+    QString m_pageTitle = "Focus";
     bool m_isLoading = false;
     qreal m_loadProgress = 0.0;
     bool m_launcherVisible = true;
