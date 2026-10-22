@@ -67,15 +67,38 @@ Item {
                     home_url: "",
                     hardware_acceleration: true,
                     dark_mode: true,
-                    zoom_level: 1.0
+                    zoom_level: 1.0,
+                    theme_mode: "system"
+                }
+            }
+        }
+
+        property string currentThemeMode: (card.config && card.config.theme_mode) ? card.config.theme_mode : "system"
+
+        Connections {
+            target: bridge
+            function onConfigJsonChanged() {
+                try {
+                    card.config = JSON.parse(bridge.configJson);
+                    card.currentThemeMode = (card.config && card.config.theme_mode) ? card.config.theme_mode : "system";
+                } catch(e) {
+                    card.config = {};
                 }
             }
         }
 
         function updateConfig(key, value) {
-            var c = card.config;
+            var c = {};
+            try {
+                c = JSON.parse(JSON.stringify(card.config || {}));
+            } catch(e) {
+                c = {};
+            }
             c[key] = value;
             card.config = c;
+            if (key === "theme_mode") {
+                card.currentThemeMode = value;
+            }
             bridge.saveConfig(JSON.stringify(c));
         }
 
@@ -1127,9 +1150,9 @@ Item {
                                     width: (paneAppearance.width - 24) / 3
                                     height: 90
                                     radius: root.itemRadius
-                                    color: (card.config.theme_mode || "system") === modelData.id ? Theme.selection : Qt.rgba(1, 1, 1, 0.02)
-                                    border.color: (card.config.theme_mode || "system") === modelData.id ? Theme.accent : Theme.border
-                                    border.width: (card.config.theme_mode || "system") === modelData.id ? 2 : 1
+                                    color: card.currentThemeMode === modelData.id ? Theme.selection : Qt.rgba(1, 1, 1, 0.02)
+                                    border.color: card.currentThemeMode === modelData.id ? Theme.accent : Theme.border
+                                    border.width: card.currentThemeMode === modelData.id ? 2 : 1
 
                                     MouseArea {
                                         id: modeMouse
@@ -1153,7 +1176,7 @@ Item {
                                             Glyph {
                                                 name: modelData.glyph
                                                 size: 16
-                                                color: (card.config.theme_mode || "system") === modelData.id ? Theme.accent : Theme.foreground
+                                                color: card.currentThemeMode === modelData.id ? Theme.accent : Theme.foreground
                                                 anchors.verticalCenter: parent.verticalCenter
                                             }
 
@@ -1169,7 +1192,7 @@ Item {
                                                 name: "check"
                                                 size: 13
                                                 color: Theme.accent
-                                                visible: (card.config.theme_mode || "system") === modelData.id
+                                                visible: card.currentThemeMode === modelData.id
                                                 anchors.verticalCenter: parent.verticalCenter
                                             }
                                         }
@@ -1204,7 +1227,7 @@ Item {
                                 Row {
                                     spacing: 12
                                     Text { text: "Modo Atual Ativo:"; color: Theme.dimForeground; font.pixelSize: 12; width: 180 }
-                                    Text { text: (card.config.theme_mode || "system") === "system" ? ("Sistema (" + Theme.mode + ")") : ((card.config.theme_mode === "dark") ? "Escuro Forçado" : "Claro Forçado"); color: Theme.accent; font.bold: true; font.pixelSize: 12 }
+                                    Text { text: card.currentThemeMode === "system" ? ("Sistema (" + Theme.mode + ")") : ((card.currentThemeMode === "dark") ? "Escuro Forçado" : "Claro Forçado"); color: Theme.accent; font.bold: true; font.pixelSize: 12 }
                                 }
 
                                 Row {

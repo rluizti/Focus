@@ -236,12 +236,20 @@ Window {
                             webView.injectSelectionStyle();
                         }
 
-                        // Auto fallback: Se falhou ao carregar endereço digitado sem www (DNS/resolução de host falhou), tenta automaticamente com www.
+                        // Auto fallback bidirecional: Se falhou com www tenta sem www, se falhou sem www tenta com www
                         if (loadRequest.status === WebEngineView.LoadFailedStatus) {
                             var failedUrl = loadRequest.url ? loadRequest.url.toString() : "";
-                            if (failedUrl && failedUrl.startsWith("https://") && !failedUrl.startsWith("https://www.")) {
+                            if (failedUrl && failedUrl.startsWith("https://www.")) {
+                                var noWwwUrl = failedUrl.replace("https://www.", "https://");
+                                console.log("[Focus] Falha ao carregar com www, tentando sem www: " + noWwwUrl);
+                                webView.url = noWwwUrl;
+                                tabsModel.setProperty(index, "url", noWwwUrl);
+                                if ((isLeftPane && window.focusedPane === "left") || (isRightPane && window.focusedPane === "right")) {
+                                    bridge.currentUrl = noWwwUrl;
+                                }
+                            } else if (failedUrl && failedUrl.startsWith("https://") && !failedUrl.startsWith("https://www.")) {
                                 var retryUrl = failedUrl.replace("https://", "https://www.");
-                                console.log("[Focus] Host não encontrado sem www, tentando com www: " + retryUrl);
+                                console.log("[Focus] Falha ao carregar sem www, tentando com www: " + retryUrl);
                                 webView.url = retryUrl;
                                 tabsModel.setProperty(index, "url", retryUrl);
                                 if ((isLeftPane && window.focusedPane === "left") || (isRightPane && window.focusedPane === "right")) {

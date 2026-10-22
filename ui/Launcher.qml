@@ -446,6 +446,8 @@ Item {
                     anchors.rightMargin: 8
                     anchors.verticalCenter: parent.verticalCenter
                     color: Theme.foreground
+                    selectionColor: Theme.accent
+                    selectedTextColor: Theme.background
                     font.family: Theme.fontFamily
                     font.pixelSize: 13
                     focus: true
@@ -1223,12 +1225,20 @@ Item {
             return "http://" + text;
         }
 
-        // Qualquer domínio sem www (ex: google.com, youtube.com, globo.com, uol.com.br, reddit.com/r/archlinux)
+        // Qualquer domínio sem www (ex: google.com, youtube.com, globo.com, uol.com.br, reddit.com)
         if (text.indexOf(" ") === -1 && text.indexOf(".") !== -1) {
             var host = text.split("/")[0].split("?")[0].split("#")[0];
             var hostParts = host.split(".");
             var tld = hostParts[hostParts.length - 1].split(":")[0];
             if (tld && tld.length >= 2 && !tld.match(/[^a-zA-Z]/)) {
+                // Se já tem subdomínio específico (ex: api.github.com, m.youtube.com, sub.domain.com)
+                if (hostParts.length > 2 && hostParts[0] !== "www" && hostParts[hostParts.length - 2] !== "com" && hostParts[hostParts.length - 2] !== "org" && hostParts[hostParts.length - 2] !== "net") {
+                    return "https://" + text;
+                }
+                // Prefixa com www. para garantir acesso direto a qualquer site sem falha de DNS
+                if (!host.startsWith("www.")) {
+                    return "https://www." + text;
+                }
                 return "https://" + text;
             }
         }
