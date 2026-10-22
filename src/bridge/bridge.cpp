@@ -218,6 +218,27 @@ void OmaBridge::reloadThemeFromDisk() {
     }
     file.close();
 
+    // Read rounding from theme's hyprland.lua (e.g. rounding = 6)
+    int rounding = 6;
+    QString hyprPath = QDir::homePath() + "/.local/state/omarchy/current/theme/hyprland.lua";
+    QFile hyprFile(hyprPath);
+    if (hyprFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        QTextStream hyprIn(&hyprFile);
+        while (!hyprIn.atEnd()) {
+            QString hLine = hyprIn.readLine().trimmed();
+            if (hLine.startsWith("rounding") && !hLine.startsWith("rounding_power")) {
+                int hEq = hLine.indexOf('=');
+                if (hEq > 0) {
+                    QString val = hLine.mid(hEq + 1).trimmed();
+                    if (val.endsWith(',')) val.chop(1);
+                    rounding = val.trimmed().toInt();
+                    break;
+                }
+            }
+        }
+        hyprFile.close();
+    }
+
     QJsonObject obj;
     obj["mode"] = map.value("mode", "dark");
     obj["background"] = map.value("background", "#0c0b0c");
@@ -232,7 +253,7 @@ void OmaBridge::reloadThemeFromDisk() {
     obj["green"] = map.value("green", "#87a9b0");
     obj["blue"] = map.value("blue", "#b59790");
     obj["font_family"] = "Inter, monospace, sans-serif";
-    obj["corner_radius"] = 0; // Omarchy straight square corners
+    obj["corner_radius"] = rounding; // Follows Omarchy theme rounding (0 for sharp, 6/8/12 for rounded)
 
     QJsonDocument doc(obj);
     QString jsonStr = QString::fromUtf8(doc.toJson(QJsonDocument::Compact));

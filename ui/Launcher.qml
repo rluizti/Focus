@@ -31,6 +31,7 @@ Item {
     property string activeWorkspace: "Principal"
     // Pinned rows only appear when user clicks to expand the box
     property bool isExpanded: false
+    readonly property int itemRadius: Theme.cornerRadius > 0 ? Math.max(2, Theme.cornerRadius - 2) : 0
 
     // Pinned Sites (Zen Browser Style - 2 rows with Omarchy vector icons)
     property var pinnedRow1: [
@@ -51,7 +52,7 @@ Item {
         { name: "Tradutor", url: "https://translate.google.com", glyph: "type" }
     ]
 
-    // Floating Central Launcher Card - Square corners (cantos retos) following Omarchy
+    // Floating Central Launcher Card - Single unified box with Omarchy contour & corner radius
     Rectangle {
         id: launcherCard
         width: Math.min(680, parent.width - 48)
@@ -60,9 +61,10 @@ Item {
         anchors.horizontalCenter: parent.horizontalCenter
 
         color: Theme.surface
-        radius: 0 // Cantos retos exatos do Omarchy
-        border.color: Theme.border
-        border.width: 1
+        radius: Theme.cornerRadius
+        border.color: Theme.accent
+        border.width: 1.5
+        clip: true
 
         // Dynamic height:
         // 1. Typing: expands to fit search results
@@ -172,7 +174,7 @@ Item {
                     Rectangle {
                         width: 30
                         height: 30
-                        radius: 0
+                        radius: root.itemRadius
                         color: root.isExpanded ? Theme.selection : (expandMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : "transparent")
                         border.color: root.isExpanded ? Theme.accent : Theme.border
                         border.width: 1
@@ -223,7 +225,7 @@ Item {
                             Rectangle {
                                 width: (launcherCard.width - 16 - 30) / 6
                                 height: 35
-                                radius: 0 // Cantos retos
+                                radius: root.itemRadius // Cantos retos
                                 color: pin1Mouse.containsMouse ? Theme.selection : Qt.rgba(1, 1, 1, 0.03)
                                 border.color: pin1Mouse.containsMouse ? Theme.accent : Theme.border
                                 border.width: 1
@@ -270,7 +272,7 @@ Item {
                             Rectangle {
                                 width: (launcherCard.width - 16 - 30) / 6
                                 height: 35
-                                radius: 0 // Cantos retos
+                                radius: root.itemRadius // Cantos retos
                                 color: pin2Mouse.containsMouse ? Theme.selection : Qt.rgba(1, 1, 1, 0.03)
                                 border.color: pin2Mouse.containsMouse ? Theme.accent : Theme.border
                                 border.width: 1
@@ -327,7 +329,7 @@ Item {
                 delegate: Rectangle {
                     width: resultsList.width
                     height: 42
-                    radius: 0
+                    radius: root.itemRadius
                     color: resMouse.containsMouse ? Theme.selection : "transparent"
 
                     MouseArea {
@@ -403,7 +405,7 @@ Item {
                             Rectangle {
                                 height: 25
                                 width: 85
-                                radius: 0
+                                radius: root.itemRadius
                                 color: root.activeWorkspace === modelData ? Theme.selection : "transparent"
                                 border.color: root.activeWorkspace === modelData ? Theme.accent : Theme.border
                                 border.width: 1
@@ -428,7 +430,7 @@ Item {
                         Rectangle {
                             height: 25
                             width: 75
-                            radius: 0
+                            radius: root.itemRadius
                             color: "transparent"
                             border.color: Theme.border
                             border.width: 1
@@ -465,7 +467,7 @@ Item {
                         delegate: Rectangle {
                             width: tabsList.width
                             height: 30
-                            radius: 0
+                            radius: root.itemRadius
                             visible: model.workspace === root.activeWorkspace
                             color: root.activeTabIndex === index ? Theme.selection : (tabRowMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.04) : "transparent")
                             border.color: root.activeTabIndex === index ? Theme.accent : "transparent"
@@ -552,7 +554,7 @@ Item {
                     Rectangle {
                         height: 26
                         width: 120
-                        radius: 0
+                        radius: root.itemRadius
                         color: Theme.accent
                         anchors.verticalCenter: parent.verticalCenter
 
@@ -590,7 +592,7 @@ Item {
                     Rectangle {
                         height: 26
                         width: 85
-                        radius: 0
+                        radius: root.itemRadius
                         color: Qt.rgba(1, 1, 1, 0.05)
                         border.color: Theme.border
                         border.width: 1
@@ -621,7 +623,7 @@ Item {
                     Rectangle {
                         height: 26
                         width: 28
-                        radius: 0
+                        radius: root.itemRadius
                         color: Qt.rgba(1, 1, 1, 0.05)
                         border.color: Theme.border
                         border.width: 1
@@ -640,7 +642,7 @@ Item {
                     Rectangle {
                         height: 26
                         width: 28
-                        radius: 0
+                        radius: root.itemRadius
                         color: Qt.rgba(1, 1, 1, 0.05)
                         border.color: Theme.border
                         border.width: 1
@@ -659,7 +661,7 @@ Item {
                     Rectangle {
                         height: 26
                         width: 28
-                        radius: 0
+                        radius: root.itemRadius
                         color: Qt.rgba(1, 1, 1, 0.05)
                         border.color: Theme.border
                         border.width: 1
@@ -678,7 +680,7 @@ Item {
                     Rectangle {
                         height: 26
                         width: 28
-                        radius: 0
+                        radius: root.itemRadius
                         color: Qt.rgba(1, 1, 1, 0.05)
                         border.color: Theme.border
                         border.width: 1
@@ -697,7 +699,7 @@ Item {
                     Rectangle {
                         height: 26
                         width: 28
-                        radius: 0
+                        radius: root.itemRadius
                         color: Qt.rgba(1, 1, 1, 0.05)
                         border.color: Theme.border
                         border.width: 1

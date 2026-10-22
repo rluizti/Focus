@@ -27,8 +27,8 @@ QtObject {
     readonly property color blue: root.data.blue || "#b59790"
     readonly property string fontFamily: "Inter, monospace, sans-serif"
     
-    // Omarchy launcher uses square / straight corners (cantos retos)
-    readonly property int cornerRadius: 0
+    // Follows Omarchy theme rounding (0 for sharp themes, 6/8/12 for rounded themes)
+    readonly property int cornerRadius: (root.data.corner_radius !== undefined && root.data.corner_radius !== null) ? root.data.corner_radius : 6
 
     readonly property int fontBody: 13
     readonly property int fontTitle: 15

@@ -102,5 +102,22 @@ pub fn load_omarchy_theme() -> ThemeInfo {
         }
     }
 
+    // Read rounding from theme's hyprland.lua (e.g. rounding = 6)
+    let hypr_path = PathBuf::from(&home).join(".local/state/omarchy/current/theme/hyprland.lua");
+    if let Ok(hypr_content) = fs::read_to_string(&hypr_path) {
+        for line in hypr_content.lines() {
+            let trimmed = line.trim();
+            if trimmed.starts_with("rounding") && !trimmed.starts_with("rounding_power") {
+                if let Some((_, val)) = trimmed.split_once('=') {
+                    let cleaned = val.trim().trim_end_matches(',').trim();
+                    if let Ok(r) = cleaned.parse::<i32>() {
+                        theme.corner_radius = r;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
     theme
 }
