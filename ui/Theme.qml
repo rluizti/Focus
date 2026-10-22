@@ -21,6 +21,8 @@ QtObject {
     readonly property color dimForeground: root.data.dim_foreground || "#8f8a8e"
     readonly property color accent: root.data.accent || "#b59790"
     readonly property color border: root.data.border || "#2d2a2c"
+    readonly property color activeBorder: root.data.active_border || root.data.accent || "#cacccc"
+    readonly property int borderSize: root.data.border_size !== undefined ? root.data.border_size : 2
     readonly property color selection: root.data.selection || "#383335"
     readonly property color red: root.data.red || "#c38b7b"
     readonly property color green: root.data.green || "#87a9b0"
@@ -28,7 +30,7 @@ QtObject {
     readonly property string fontFamily: "Inter, monospace, sans-serif"
     
     // Follows Omarchy theme rounding (0 for sharp themes, 6/8/12 for rounded themes)
-    readonly property int cornerRadius: (root.data.corner_radius !== undefined && root.data.corner_radius !== null) ? root.data.corner_radius : 6
+    readonly property int cornerRadius: (root.data.corner_radius !== undefined && root.data.corner_radius !== null) ? root.data.corner_radius : 8
 
     readonly property int fontBody: 13
     readonly property int fontTitle: 15

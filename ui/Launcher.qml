@@ -62,8 +62,8 @@ Item {
 
         color: Theme.surface
         radius: Theme.cornerRadius
-        border.color: Theme.accent
-        border.width: 1.5
+        border.color: Theme.activeBorder
+        border.width: Theme.borderSize
         clip: true
 
         // Dynamic height:
@@ -100,11 +100,11 @@ Item {
             anchors.fill: parent
             spacing: 0
 
-            // 1. TOP TYPING INPUT BAR (Clean, square, Omarchy style)
+            // 1. TOP TYPING INPUT BAR (Clean, Omarchy style)
             Rectangle {
                 width: parent.width
                 height: 50
-                color: Theme.surfaceVariant
+                color: "transparent"
 
                 Rectangle {
                     width: parent.width
@@ -534,7 +534,7 @@ Item {
                 id: bottomQuickBar
                 width: parent.width
                 height: 42
-                color: Theme.surfaceVariant
+                color: "transparent"
                 visible: root.isExpanded && inputQuery.text.trim().length === 0
 
                 Rectangle {

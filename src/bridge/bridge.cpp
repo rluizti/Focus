@@ -248,6 +248,8 @@ void OmaBridge::reloadThemeFromDisk() {
     obj["dim_foreground"] = map.value("dark_foreground", "#8f8a8e");
     obj["accent"] = map.value("accent", "#b59790");
     obj["border"] = map.value("active_border_color", "#2d2a2c");
+    obj["active_border"] = map.value("active_border_color", "#cacccc");
+    obj["border_size"] = 2;
     obj["selection"] = map.value("selection", "#383335");
     obj["red"] = map.value("red", "#c38b7b");
     obj["green"] = map.value("green", "#87a9b0");
@@ -271,6 +273,47 @@ void OmaBridge::toggleSettings() {
 void OmaBridge::closeBrowser() {
     QGuiApplication::quit();
 }
+
+#include <QKeyEvent>
+
+class GlobalKeyFilter : public QObject {
+public:
+    explicit GlobalKeyFilter(OmaBridge *bridge, QObject *parent = nullptr)
+        : QObject(parent), m_bridge(bridge) {}
+
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override {
+        if (event->type() == QEvent::KeyPress) {
+            auto *keyEvent = static_cast<QKeyEvent *>(event);
+            int key = keyEvent->key();
+            Qt::KeyboardModifiers mods = keyEvent->modifiers();
+
+            // Alt+Space or Ctrl+Space: Always toggle launcher
+            if (key == Qt::Key_Space && (mods & (Qt::AltModifier | Qt::ControlModifier))) {
+                m_bridge->toggleLauncher();
+                return true;
+            }
+
+            // Space alone: Opens launcher if launcher is currently closed
+            if (key == Qt::Key_Space && (mods == Qt::NoModifier || mods == Qt::KeypadModifier)) {
+                if (!m_bridge->launcherVisible() && !m_bridge->settingsVisible()) {
+                    m_bridge->setLauncherVisible(true);
+                    return true;
+                }
+            }
+
+            // Escape: Close launcher if open
+            if (key == Qt::Key_Escape && m_bridge->launcherVisible()) {
+                m_bridge->setLauncherVisible(false);
+                return true;
+            }
+        }
+        return QObject::eventFilter(watched, event);
+    }
+
+private:
+    OmaBridge *m_bridge;
+};
 
 extern "C" {
 
@@ -319,6 +362,10 @@ int oma_run_gui(
     OmaBridge *bridge = OmaBridge::instance();
     bridge->setCallbacks(callbacks);
     bridge->initThemeWatcher();
+
+    // Global Key Filter: intercept Space/Alt+Space across entire app/WebEngine
+    GlobalKeyFilter *keyFilter = new GlobalKeyFilter(bridge, &app);
+    app.installEventFilter(keyFilter);
 
     if (initial_theme_json) {
         bridge->setThemeJson(QString::fromUtf8(initial_theme_json));

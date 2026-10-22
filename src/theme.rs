@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
+use std::process::Command;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ThemeInfo {
@@ -13,6 +14,8 @@ pub struct ThemeInfo {
     pub dim_foreground: String,
     pub accent: String,
     pub border: String,
+    pub active_border: String,
+    pub border_size: i32,
     pub selection: String,
     pub red: String,
     pub green: String,
@@ -32,12 +35,14 @@ impl Default for ThemeInfo {
             dim_foreground: "#8f8a8e".to_string(),
             accent: "#b59790".to_string(),
             border: "#3a3437".to_string(),
+            active_border: "#cacccc".to_string(),
+            border_size: 2,
             selection: "#584e51".to_string(),
             red: "#c38b7b".to_string(),
             green: "#87a9b0".to_string(),
             blue: "#b59790".to_string(),
             font_family: "Inter, Roboto, sans-serif".to_string(),
-            corner_radius: 12,
+            corner_radius: 8,
         }
     }
 }
@@ -84,6 +89,7 @@ pub fn load_omarchy_theme() -> ThemeInfo {
         }
         if let Some(bord) = map.get("active_border_color") {
             theme.border = bord.clone();
+            theme.active_border = bord.clone();
         }
         if let Some(sel) = map.get("selection") {
             theme.selection = sel.clone();
@@ -102,7 +108,7 @@ pub fn load_omarchy_theme() -> ThemeInfo {
         }
     }
 
-    // Read rounding from theme's hyprland.lua (e.g. rounding = 6)
+    // Read rounding from theme's hyprland.lua
     let hypr_path = PathBuf::from(&home).join(".local/state/omarchy/current/theme/hyprland.lua");
     if let Ok(hypr_content) = fs::read_to_string(&hypr_path) {
         for line in hypr_content.lines() {
@@ -112,6 +118,35 @@ pub fn load_omarchy_theme() -> ThemeInfo {
                     let cleaned = val.trim().trim_end_matches(',').trim();
                     if let Ok(r) = cleaned.parse::<i32>() {
                         theme.corner_radius = r;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    // Query active compositor values via hyprctl for ground truth
+    if let Ok(output) = Command::new("hyprctl").args(["getoption", "decoration:rounding"]).output() {
+        if output.status.success() {
+            let out_str = String::from_utf8_lossy(&output.stdout);
+            for line in out_str.lines() {
+                if let Some(val) = line.strip_prefix("int:") {
+                    if let Ok(r) = val.trim().parse::<i32>() {
+                        theme.corner_radius = r;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    if let Ok(output) = Command::new("hyprctl").args(["getoption", "general:border_size"]).output() {
+        if output.status.success() {
+            let out_str = String::from_utf8_lossy(&output.stdout);
+            for line in out_str.lines() {
+                if let Some(val) = line.strip_prefix("int:") {
+                    if let Ok(s) = val.trim().parse::<i32>() {
+                        theme.border_size = s;
                         break;
                     }
                 }

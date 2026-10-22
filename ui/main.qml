@@ -263,40 +263,65 @@ Window {
         id: settingsModal
     }
 
-    // Global Key Handlers
-    Item {
-        anchors.fill: parent
-        focus: true
+    // Global Window Shortcuts (Active window-wide, always intercepts regardless of webView focus)
+    Shortcut {
+        sequence: "Space"
+        enabled: !bridge.launcherVisible && !bridge.settingsVisible
+        onActivated: bridge.launcherVisible = true
+    }
 
-        Keys.onPressed: function(event) {
-            // F12 toggles Chrome DevTools
-            if (event.key === Qt.Key_F12) {
-                window.devToolsOpen = !window.devToolsOpen;
-                event.accepted = true;
-            } else if (event.key === Qt.Key_Space && !bridge.launcherVisible && !bridge.settingsVisible) {
-                bridge.launcherVisible = true;
-                event.accepted = true;
-            } else if (event.key === Qt.Key_L && (event.modifiers & Qt.ControlModifier)) {
-                bridge.launcherVisible = true;
-                event.accepted = true;
-            } else if (event.key === Qt.Key_T && (event.modifiers & Qt.ControlModifier)) {
-                launcher.isExpanded = true;
-                bridge.launcherVisible = true;
-                event.accepted = true;
-            } else if (event.key === Qt.Key_Comma && (event.modifiers & Qt.ControlModifier)) {
-                bridge.settingsVisible = true;
-                event.accepted = true;
-            } else if (event.key === Qt.Key_Escape) {
-                if (window.devToolsOpen) {
-                    window.devToolsOpen = false;
-                    event.accepted = true;
-                } else if (bridge.settingsVisible) {
-                    bridge.settingsVisible = false;
-                    event.accepted = true;
-                } else if (bridge.launcherVisible) {
-                    bridge.launcherVisible = false;
-                    event.accepted = true;
-                }
+    Shortcut {
+        sequence: "Alt+Space"
+        onActivated: bridge.launcherVisible = !bridge.launcherVisible
+    }
+
+    Shortcut {
+        sequence: "Ctrl+Space"
+        onActivated: bridge.launcherVisible = !bridge.launcherVisible
+    }
+
+    Shortcut {
+        sequence: "Ctrl+L"
+        onActivated: bridge.launcherVisible = true
+    }
+
+    Shortcut {
+        sequence: "Ctrl+T"
+        onActivated: {
+            launcher.isExpanded = true;
+            bridge.launcherVisible = true;
+        }
+    }
+
+    Shortcut {
+        sequence: "F12"
+        onActivated: window.devToolsOpen = !window.devToolsOpen
+    }
+
+    Shortcut {
+        sequence: "Ctrl+,"
+        onActivated: bridge.settingsVisible = true
+    }
+
+    Shortcut {
+        sequence: "Ctrl+R"
+        onActivated: launcher.webViewAction("reload")
+    }
+
+    Shortcut {
+        sequence: "F5"
+        onActivated: launcher.webViewAction("reload")
+    }
+
+    Shortcut {
+        sequence: "Escape"
+        onActivated: {
+            if (window.devToolsOpen) {
+                window.devToolsOpen = false;
+            } else if (bridge.settingsVisible) {
+                bridge.settingsVisible = false;
+            } else if (bridge.launcherVisible) {
+                bridge.launcherVisible = false;
             }
         }
     }
