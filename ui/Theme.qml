@@ -2,7 +2,7 @@ import QtQuick
 
 pragma Singleton
 
-QtObject {
+Item {
     id: root
 
     property string rawTheme: bridge.themeJson
