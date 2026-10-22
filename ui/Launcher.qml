@@ -8,6 +8,7 @@ Item {
     z: 500
 
     signal requestBitwardenUnlock()
+    signal translatePageRequested(string targetLang)
 
     // Backdrop overlay
     Rectangle {
@@ -87,7 +88,7 @@ Item {
         height: {
             var total = 50;
             if (root.isSiteConfigExpanded) {
-                total += 140;
+                total += 205;
             }
             if (root.isExpanded) {
                 total += 94 + 140 + 42;
@@ -148,36 +149,115 @@ Item {
                     }
                 }
 
-                // Left: Botão de Configuração da Página (Site Settings / SSL Padlock)
-                Rectangle {
-                    id: siteConfigBtn
-                    width: 28
-                    height: 28
-                    radius: root.itemRadius
+                // Left: Botão de Configuração do Site + Plugins Pinados ao lado da barra
+                Row {
+                    id: leftSiteBar
                     anchors.left: parent.left
-                    anchors.leftMargin: 12
+                    anchors.leftMargin: 10
                     anchors.verticalCenter: parent.verticalCenter
-                    color: siteConfigMouse.containsMouse || root.isSiteConfigExpanded ? Theme.selection : "transparent"
-                    border.color: siteConfigMouse.containsMouse || root.isSiteConfigExpanded ? Theme.accent : "transparent"
-                    border.width: 1
+                    spacing: 4
 
-                    Glyph {
-                        name: (bridge.currentUrl && bridge.currentUrl.indexOf("https://") === 0) ? "lock" :
-                              ((bridge.currentUrl && bridge.currentUrl.indexOf("http://") === 0) ? "alert" : "sliders")
-                        size: 13
-                        color: (bridge.currentUrl && bridge.currentUrl.indexOf("https://") === 0) ? Theme.green :
-                               ((bridge.currentUrl && bridge.currentUrl.indexOf("http://") === 0) ? Theme.red : Theme.dimForeground)
-                        anchors.centerIn: parent
+                    // Botão de Configuração da Página (Site Settings / SSL Padlock)
+                    Rectangle {
+                        id: siteConfigBtn
+                        width: 28
+                        height: 28
+                        radius: root.itemRadius
+                        color: siteConfigMouse.containsMouse || root.isSiteConfigExpanded ? Theme.selection : "transparent"
+                        border.color: siteConfigMouse.containsMouse || root.isSiteConfigExpanded ? Theme.accent : "transparent"
+                        border.width: 1
+
+                        Glyph {
+                            name: (bridge.currentUrl && bridge.currentUrl.indexOf("https://") === 0) ? "lock" :
+                                  ((bridge.currentUrl && bridge.currentUrl.indexOf("http://") === 0) ? "alert" : "sliders")
+                            size: 13
+                            color: (bridge.currentUrl && bridge.currentUrl.indexOf("https://") === 0) ? Theme.green :
+                                   ((bridge.currentUrl && bridge.currentUrl.indexOf("http://") === 0) ? Theme.red : Theme.dimForeground)
+                            anchors.centerIn: parent
+                        }
+
+                        MouseArea {
+                            id: siteConfigMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                root.isSiteConfigExpanded = !root.isSiteConfigExpanded;
+                            }
+                        }
                     }
 
-                    MouseArea {
-                        id: siteConfigMouse
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: {
-                            root.isSiteConfigExpanded = !root.isSiteConfigExpanded;
+                    // Plugin Pinado 1: Google Tradutor
+                    Rectangle {
+                        id: pinTranslateBtn
+                        width: 28
+                        height: 28
+                        radius: root.itemRadius
+                        color: pinTranslateMouse.containsMouse ? Theme.selection : "transparent"
+                        border.color: pinTranslateMouse.containsMouse ? Theme.accent : "transparent"
+                        border.width: 1
+                        visible: bridge.currentUrl && bridge.currentUrl.length > 0 && bridge.currentUrl !== "about:blank"
+
+                        Glyph {
+                            name: "type"
+                            size: 13
+                            color: pinTranslateMouse.containsMouse ? Theme.accent : Theme.foreground
+                            anchors.centerIn: parent
                         }
+
+                        MouseArea {
+                            id: pinTranslateMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.translateCurrentPage()
+                        }
+                    }
+
+                    // Plugin Pinado 2: Bitwarden
+                    Rectangle {
+                        id: pinBitwardenBtn
+                        width: 28
+                        height: 28
+                        radius: root.itemRadius
+                        color: pinBwMouse.containsMouse ? Theme.selection : "transparent"
+                        border.color: pinBwMouse.containsMouse ? Theme.accent : "transparent"
+                        border.width: 1
+                        visible: {
+                            try {
+                                var cfg = JSON.parse(bridge.configJson);
+                                return cfg.bitwarden_enabled === true;
+                            } catch(e) { return false; }
+                        }
+
+                        Glyph {
+                            name: "shield"
+                            size: 13
+                            color: bridge.bitwardenUnlocked ? Theme.green : Theme.accent
+                            anchors.centerIn: parent
+                        }
+
+                        MouseArea {
+                            id: pinBwMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                if (!bridge.bitwardenUnlocked) {
+                                    root.requestBitwardenUnlock();
+                                } else {
+                                    bridge.openBitwarden();
+                                }
+                            }
+                        }
+                    }
+
+                    // Divisor sutil
+                    Rectangle {
+                        width: 1
+                        height: 16
+                        color: Theme.border
+                        anchors.verticalCenter: parent.verticalCenter
                     }
                 }
 
@@ -352,7 +432,7 @@ Item {
                 // Center: Main Text Input (Address Bar & Search)
                 TextInput {
                     id: inputQuery
-                    anchors.left: siteConfigBtn.right
+                    anchors.left: leftSiteBar.right
                     anchors.right: rightActionsRow.left
                     anchors.leftMargin: 8
                     anchors.rightMargin: 8
@@ -430,7 +510,7 @@ Item {
             Rectangle {
                 id: siteConfigExpandedPanel
                 width: parent.width
-                height: root.isSiteConfigExpanded ? 140 : 0
+                height: root.isSiteConfigExpanded ? 205 : 0
                 clip: true
                 visible: height > 0
                 color: Qt.rgba(0, 0, 0, 0.15)
@@ -449,7 +529,7 @@ Item {
                 Column {
                     anchors.fill: parent
                     anchors.margins: 14
-                    spacing: 12
+                    spacing: 10
 
                     Row {
                         width: parent.width
@@ -561,6 +641,175 @@ Item {
                             spacing: 6
                             Glyph { name: "shield"; size: 12; color: Theme.accent; anchors.verticalCenter: parent.verticalCenter }
                             Text { text: "Isolamento Seguro: Ativo"; color: Theme.foreground; font.pixelSize: 11 }
+                        }
+                    }
+
+                    Rectangle {
+                        width: parent.width
+                        height: 1
+                        color: Qt.rgba(1, 1, 1, 0.06)
+                    }
+
+                    // Plugins e Extensões Pinados no Site
+                    Row {
+                        width: parent.width
+                        spacing: 12
+
+                        // Plugin 1: Google Tradutor
+                        Rectangle {
+                            width: (parent.width - 12) / 2
+                            height: 44
+                            radius: root.itemRadius
+                            color: Qt.rgba(1, 1, 1, 0.03)
+                            border.color: translateSiteMouse.containsMouse ? Theme.accent : Theme.border
+                            border.width: 1
+
+                            Row {
+                                anchors.fill: parent
+                                anchors.margins: 6
+                                spacing: 8
+
+                                Rectangle {
+                                    width: 30
+                                    height: 30
+                                    radius: root.itemRadius
+                                    color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.15)
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    Glyph { name: "type"; size: 13; color: Theme.accent; anchors.centerIn: parent }
+                                }
+
+                                Column {
+                                    width: parent.width - 120
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    spacing: 2
+                                    Text {
+                                        text: "Google Tradutor"
+                                        color: Theme.foreground
+                                        font.bold: true
+                                        font.pixelSize: 11
+                                        font.family: Theme.fontFamily
+                                    }
+                                    Text {
+                                        text: "Traduzir página ao vivo"
+                                        color: Theme.dimForeground
+                                        font.pixelSize: 10
+                                        font.family: Theme.fontFamily
+                                        elide: Text.ElideRight
+                                        width: parent.width
+                                    }
+                                }
+
+                                Rectangle {
+                                    width: 74
+                                    height: 24
+                                    radius: root.itemRadius
+                                    color: translateSiteMouse.containsMouse ? Theme.accent : Qt.rgba(1, 1, 1, 0.08)
+                                    anchors.verticalCenter: parent.verticalCenter
+
+                                    Text {
+                                        text: "Traduzir"
+                                        color: translateSiteMouse.containsMouse ? Theme.background : Theme.foreground
+                                        font.pixelSize: 10
+                                        font.bold: true
+                                        font.family: Theme.fontFamily
+                                        anchors.centerIn: parent
+                                    }
+                                }
+                            }
+
+                            MouseArea {
+                                id: translateSiteMouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: {
+                                    root.translateCurrentPage();
+                                    root.isSiteConfigExpanded = false;
+                                }
+                            }
+                        }
+
+                        // Plugin 2: Bitwarden
+                        Rectangle {
+                            width: (parent.width - 12) / 2
+                            height: 44
+                            radius: root.itemRadius
+                            color: Qt.rgba(1, 1, 1, 0.03)
+                            border.color: bwSiteMouse.containsMouse ? Theme.accent : Theme.border
+                            border.width: 1
+
+                            Row {
+                                anchors.fill: parent
+                                anchors.margins: 6
+                                spacing: 8
+
+                                Rectangle {
+                                    width: 30
+                                    height: 30
+                                    radius: root.itemRadius
+                                    color: bridge.bitwardenUnlocked ? Qt.rgba(0.2, 0.8, 0.4, 0.15) : Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.15)
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    Glyph {
+                                        name: "shield"
+                                        size: 13
+                                        color: bridge.bitwardenUnlocked ? Theme.green : Theme.accent
+                                        anchors.centerIn: parent
+                                    }
+                                }
+
+                                Column {
+                                    width: parent.width - 120
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    spacing: 2
+                                    Text {
+                                        text: "Bitwarden"
+                                        color: Theme.foreground
+                                        font.bold: true
+                                        font.pixelSize: 11
+                                        font.family: Theme.fontFamily
+                                    }
+                                    Text {
+                                        text: bridge.bitwardenUnlocked ? "✓ Desbloqueado" : "🔒 Bloqueado"
+                                        color: bridge.bitwardenUnlocked ? Theme.green : Theme.dimForeground
+                                        font.pixelSize: 10
+                                        font.family: Theme.fontFamily
+                                        elide: Text.ElideRight
+                                        width: parent.width
+                                    }
+                                }
+
+                                Rectangle {
+                                    width: 74
+                                    height: 24
+                                    radius: root.itemRadius
+                                    color: bwSiteMouse.containsMouse ? Theme.accent : Qt.rgba(1, 1, 1, 0.08)
+                                    anchors.verticalCenter: parent.verticalCenter
+
+                                    Text {
+                                        text: bridge.bitwardenUnlocked ? "Abrir" : "Desbloquear"
+                                        color: bwSiteMouse.containsMouse ? Theme.background : Theme.foreground
+                                        font.pixelSize: 10
+                                        font.bold: true
+                                        font.family: Theme.fontFamily
+                                        anchors.centerIn: parent
+                                    }
+                                }
+                            }
+
+                            MouseArea {
+                                id: bwSiteMouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: {
+                                    if (!bridge.bitwardenUnlocked) {
+                                        root.requestBitwardenUnlock();
+                                    } else {
+                                        bridge.openBitwarden();
+                                    }
+                                    root.isSiteConfigExpanded = false;
+                                }
+                            }
                         }
                     }
                 }
@@ -1292,10 +1541,10 @@ Item {
         return "https://www.google.com/search?q=" + encodeURIComponent(text);
     }
 
-    function translateCurrentPage() {
+    function translateCurrentPage(targetLang) {
         if (!bridge.currentUrl || bridge.currentUrl.length === 0 || bridge.currentUrl === "about:blank") return;
-        var translateUrl = "https://translate.google.com/translate?sl=auto&tl=pt&u=" + encodeURIComponent(bridge.currentUrl);
-        root.openUrlInTab(translateUrl);
+        var lang = targetLang || "pt";
+        root.translatePageRequested(lang);
     }
 
     function executeAction(text) {

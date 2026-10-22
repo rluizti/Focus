@@ -331,6 +331,52 @@ Window {
                         runJavaScript(js);
                     }
 
+                    function translatePage(targetLang) {
+                        var lang = targetLang || "pt";
+                        var js = "(function() {\n" +
+                            "  if (window.google && window.google.translate) {\n" +
+                            "    var sel = document.querySelector('.goog-te-combo');\n" +
+                            "    if (sel) {\n" +
+                            "      sel.value = '" + lang + "';\n" +
+                            "      sel.dispatchEvent(new Event('change'));\n" +
+                            "    }\n" +
+                            "    return;\n" +
+                            "  }\n" +
+                            "  var el = document.getElementById('google_translate_element');\n" +
+                            "  if (!el) {\n" +
+                            "    el = document.createElement('div');\n" +
+                            "    el.id = 'google_translate_element';\n" +
+                            "    el.style.cssText = 'position:fixed;top:16px;right:16px;z-index:2147483647;background:#ffffff;color:#18181b;border:1px solid #ccc;border-radius:8px;padding:6px 12px;box-shadow:0 8px 24px rgba(0,0,0,0.3);font-family:Inter,sans-serif;font-size:12px;';\n" +
+                            "    document.body.appendChild(el);\n" +
+                            "  }\n" +
+                            "  window.googleTranslateElementInit = function() {\n" +
+                            "    try {\n" +
+                            "      new google.translate.TranslateElement({\n" +
+                            "        pageLanguage: 'auto',\n" +
+                            "        includedLanguages: 'pt,en,es,fr,de,it,ja,zh-CN,ru',\n" +
+                            "        layout: google.translate.TranslateElement.InlineLayout.SIMPLE,\n" +
+                            "        autoDisplay: false\n" +
+                            "      }, 'google_translate_element');\n" +
+                            "      setTimeout(function() {\n" +
+                            "        var sel = document.querySelector('.goog-te-combo');\n" +
+                            "        if (sel) {\n" +
+                            "          sel.value = '" + lang + "';\n" +
+                            "          sel.dispatchEvent(new Event('change'));\n" +
+                            "        }\n" +
+                            "      }, 700);\n" +
+                            "    } catch(e) {}\n" +
+                            "  };\n" +
+                            "  if (!document.getElementById('google-translate-script')) {\n" +
+                            "    var s = document.createElement('script');\n" +
+                            "    s.id = 'google-translate-script';\n" +
+                            "    s.type = 'text/javascript';\n" +
+                            "    s.src = 'https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';\n" +
+                            "    document.head.appendChild(s);\n" +
+                            "  }\n" +
+                            "})();";
+                        runJavaScript(js);
+                    }
+
                     onJavaScriptConsoleMessage: function(level, message, lineNumber, sourceId) {
                         if (message.indexOf("[FOCUS_BITWARDEN_UNLOCK]") === 0) {
                             bitwardenModal.openModal(function() {
@@ -612,6 +658,14 @@ Window {
         }
 
         onRequestBitwardenUnlock: bitwardenModal.openModal()
+
+        onTranslatePageRequested: function(targetLang) {
+            var targetIdx = (window.splitViewActive && window.focusedPane === "right") ? window.splitTabIndex : window.activeTabIndex;
+            var activeItem = tabsRepeater.itemAt(targetIdx);
+            if (activeItem && activeItem.webViewItem) {
+                activeItem.webViewItem.translatePage(targetLang);
+            }
+        }
     }
 
     // Floating Settings Modal (Estilo Flea SettingsPanel)
