@@ -2,6 +2,7 @@
 name = "focus"
 version = "0.1.0"
 edition = "2024"
+exclude = ["pkg", "*.pkg.tar*"]
 
 [dependencies]
 serde = { version = "1.0.229", features = ["derive"] }
@@ -9,3 +10,11 @@ serde_json = "1.0.154"
 
 [build-dependencies]
 cmake = "0.1.58"
+
+
+# -------------------------------------------------
+# BINARY TARGET – necessário para o cargo build
+[[bin]]
+name = "focus"
+path = "src/main.rs"
+# -------------------------------------------------

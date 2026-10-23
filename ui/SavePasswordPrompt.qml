@@ -15,15 +15,19 @@ Item {
     property string saveDomain: ""
     property string saveUsername: ""
     property string savePassword: ""
+    property bool isUpdate: false
+    property bool showPassword: false
     property bool isSaved: false
 
     readonly property int itemRadius: Theme.cornerRadius > 0 ? Math.max(2, Theme.cornerRadius - 2) : 0
 
-    function promptSave(url, username, password) {
+    function promptSave(url, username, password, update) {
         if (!url || !username || !password) return;
         saveUrl = url;
         saveUsername = username;
         savePassword = password;
+        isUpdate = (update === true);
+        showPassword = false;
         isSaved = false;
 
         var d = url;
@@ -98,7 +102,7 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
 
                     Text {
-                        text: root.isSaved ? "Senha salva!" : "Salvar senha?"
+                        text: root.isSaved ? (root.isUpdate ? "Senha atualizada!" : "Senha salva!") : (root.isUpdate ? "Atualizar senha?" : "Salvar senha?")
                         font.family: Theme.fontFamily
                         font.pixelSize: 12
                         font.bold: true
@@ -147,7 +151,7 @@ Item {
             // Credential info
             Column {
                 width: parent.width
-                spacing: 3
+                spacing: 4
 
                 Row {
                     spacing: 6
@@ -183,10 +187,33 @@ Item {
                     }
 
                     Text {
-                        text: "••••••••••••"
+                        text: root.showPassword ? root.savePassword : "••••••••••••"
                         font.family: Theme.fontFamily
                         font.pixelSize: 11
                         color: Theme.foreground
+                        elide: Text.ElideRight
+                        width: parent.width - 80
+                    }
+
+                    Rectangle {
+                        width: 18
+                        height: 18
+                        radius: 3
+                        color: eyeMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.1) : "transparent"
+
+                        Text {
+                            text: root.showPassword ? "🙈" : "👁️"
+                            font.pixelSize: 10
+                            anchors.centerIn: parent
+                        }
+
+                        MouseArea {
+                            id: eyeMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.showPassword = !root.showPassword
+                        }
                     }
                 }
             }
@@ -229,7 +256,7 @@ Item {
                     color: saveMouse.containsMouse ? Qt.darker(Theme.accent, 1.1) : Theme.accent
 
                     Text {
-                        text: "Salvar"
+                        text: root.isUpdate ? "Atualizar" : "Salvar"
                         font.family: Theme.fontFamily
                         font.pixelSize: 11
                         font.bold: true
@@ -258,7 +285,7 @@ Item {
                 visible: root.isSaved
 
                 Text {
-                    text: "✓ Integrado ao cofre do Bitwarden"
+                    text: root.isUpdate ? "✓ Senha atualizada no Bitwarden" : "✓ Integrada ao cofre do Bitwarden"
                     font.family: Theme.fontFamily
                     font.pixelSize: 11
                     font.bold: true

@@ -10,7 +10,7 @@
 * **Janela Totalmente Limpa (Chromeless)**: Sem abas pesadas ou barras ocupando espaço. Apenas a web pura em tela cheia com cantos arredondados e suporte ao tema do sistema.
 * **Lançador Superior Expansível (Launcher / Omnibar)**:
   * Invoque a qualquer momento pressionando `Espaço` (quando fora de um input) ou encostando o mouse no topo da tela (ou `Ctrl+L`).
-  * Conforme você digita, o lançador expande suavemente um card central estilo **Walker / Flea** com resultados em tempo real:
+  * Conforme você digita, o lançador expande suavemente um card central moderno com resultados em tempo real:
     * URLs diretas
     * Busca no Google (ou no motor configurado)
     * Favoritos e histórico sincronizados do seu Google Chrome / Chromium
@@ -20,8 +20,10 @@
   * Motor Secundário: **Zen Browser / Firefox / LibreWolf** (Gecko) com perfil dedicado para máxima privacidade.
   * Alterne entre os motores com 1 clique direto no lançador ou nas configurações.
 * **Login na Conta Google & Sincronização**:
-  * Sessões persistentes completas para Gmail, YouTube, Google Drive e login unificado da conta Google.
+  * Cookies e sessões de navegação ficam persistidos no perfil do Focus. Provedores OAuth que bloqueiam WebViews, como o Google, continuam o login no navegador externo; essa sessão não é compartilhada com o Focus.
   * Importação e sincronização local contínua de favoritos e histórico direto do perfil do Google Chrome / Chromium (`~/.config/google-chrome` ou `~/.config/chromium`).
+* **Janela de Configurações Flutuante**:
+  * Design em duas colunas (trilho de seções à esquerda, controles suaves à direita).
   * 100% integrado com o tema ao vivo do Omarchy (`~/.local/state/omarchy/current/theme/colors.toml`).
 
 ---
@@ -85,7 +87,7 @@ Focus/
 └── ui/
     ├── main.qml             # Janela principal limpa e container WebEngine
     ├── Launcher.qml         # Lançador expansível no topo
-    ├── SettingsModal.qml    # Modal flutuante de configurações (estilo Flea)
+    ├── SettingsModal.qml    # Modal flutuante de configurações
     ├── Theme.qml            # Singleton de tema Omarchy
     └── qmldir               # Definições de módulos QML
 ```

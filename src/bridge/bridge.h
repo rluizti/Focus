@@ -83,9 +83,12 @@ public:
     Q_INVOKABLE void syncChrome();
     Q_INVOKABLE void switchEngine(const QString &engine, const QString &url = QString());
     Q_INVOKABLE void launchFirefox(const QString &url);
+    Q_INVOKABLE bool openExternalUrl(const QString &url);
     Q_INVOKABLE void toggleLauncher();
     Q_INVOKABLE void toggleSettings();
     Q_INVOKABLE void closeBrowser();
+    Q_INVOKABLE bool isDefaultBrowser() const;
+    Q_INVOKABLE void setAsDefaultBrowser();
 
     Q_INVOKABLE bool isBitwardenInstalled() const;
     Q_INVOKABLE void openBitwarden();

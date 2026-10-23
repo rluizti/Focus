@@ -128,24 +128,32 @@ fn main() {
         .and_then(|p| p.parent().map(|p| p.to_path_buf()))
         .unwrap_or_else(|| PathBuf::from("."));
 
-    // Check workspace ui path or installed ui path
-    let mut qml_candidates = vec![
-        PathBuf::from("/mnt/Dados/Projects/Focus/ui/main.qml"),
+    // Resolve installed and development layouts without binding the binary to
+    // the original developer's checkout path.
+    let mut qml_candidates = Vec::new();
+    if let Ok(ui_dir) = std::env::var("FOCUS_QML_DIR") {
+        qml_candidates.push(PathBuf::from(ui_dir).join("main.qml"));
+    }
+    qml_candidates.extend([
         exe_dir.join("../ui/main.qml"),
         exe_dir.join("ui/main.qml"),
+        std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")).join("ui/main.qml"),
         PathBuf::from("/usr/share/focus/ui/main.qml"),
         PathBuf::from("/usr/local/share/focus/ui/main.qml"),
-    ];
+    ]);
 
     if let Ok(home) = std::env::var("HOME") {
         qml_candidates.push(PathBuf::from(home).join(".local/share/focus/ui/main.qml"));
     }
 
-    let qml_path = qml_candidates
+    let Some(qml_path) = qml_candidates
         .iter()
         .find(|p| p.exists())
         .cloned()
-        .unwrap_or_else(|| PathBuf::from("ui/main.qml"));
+    else {
+        eprintln!("[Focus] Could not find ui/main.qml. Set FOCUS_QML_DIR to the UI directory.");
+        std::process::exit(1);
+    };
 
     println!("[Focus] Loading QML from: {}", qml_path.display());
 

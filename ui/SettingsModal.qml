@@ -1,13 +1,29 @@
 import QtQuick
 import QtQuick.Controls
+import Qt5Compat.GraphicalEffects
+import "js/I18n.js" as I18n
 
 Item {
     id: root
     visible: bridge.settingsVisible
     anchors.fill: parent
-    z: 999
+    focus: visible
+    onVisibleChanged: {
+        if (visible) forceActiveFocus();
+    }
+    Keys.onEscapePressed: function(event) {
+        bridge.settingsVisible = false;
+        event.accepted = true;
+    }
+    Keys.onPressed: function(event) {
+        if (event.key === Qt.Key_Escape) {
+            bridge.settingsVisible = false;
+            event.accepted = true;
+        }
+    }
 
     signal requestBitwardenUnlock()
+    signal languageChanged(string langCode)
 
     readonly property int itemRadius: Theme.cornerRadius > 0 ? Math.max(2, Theme.cornerRadius - 2) : 0
 
@@ -71,14 +87,21 @@ Item {
                     dark_mode: true,
                     zoom_level: 1.0,
                     theme_mode: "system",
-                    language: "en-US",
+                    language: "pt-BR",
                     bitwarden_enabled: false
                 }
             }
         }
 
         property string currentThemeMode: (card.config && card.config.theme_mode) ? card.config.theme_mode : "system"
-        property string currentLanguage: (card.config && card.config.language) ? card.config.language : "en-US"
+        property string currentLanguage: (card.config && card.config.language) ? card.config.language : "pt-BR"
+        property var googleAccount: {
+            try {
+                return JSON.parse(bridge.googleAccountJson);
+            } catch(e) {
+                return { isLoggedIn: false, name: "", givenName: "", email: "", avatar: "" };
+            }
+        }
 
         Connections {
             target: bridge
@@ -86,10 +109,15 @@ Item {
                 try {
                     card.config = JSON.parse(bridge.configJson);
                     card.currentThemeMode = (card.config && card.config.theme_mode) ? card.config.theme_mode : "system";
-                    card.currentLanguage = (card.config && card.config.language) ? card.config.language : "en-US";
+                    card.currentLanguage = (card.config && card.config.language) ? card.config.language : "pt-BR";
                 } catch(e) {
                     card.config = {};
                 }
+            }
+            function onGoogleAccountChanged() {
+                try {
+                    card.googleAccount = JSON.parse(bridge.googleAccountJson);
+                } catch(e) {}
             }
         }
 
@@ -161,24 +189,136 @@ Item {
                                 font.bold: true
                             }
                             Text {
-                                text: "Configurações"
+                                text: I18n.t(card.currentLanguage, "settings")
                                 color: Theme.dimForeground
                                 font.pixelSize: 11
                             }
                         }
                     }
 
+                    // Card de Perfil da Conta Google na Sidebar
+                    Rectangle {
+                        width: parent.width
+                        height: 44
+                        radius: root.itemRadius
+                        color: profileSidebarMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(1, 1, 1, 0.04)
+                        border.color: (card.activeSection === "sync") ? Theme.accent : Theme.border
+                        border.width: 1
+
+                        Row {
+                            anchors.fill: parent
+                            anchors.margins: 6
+                            spacing: 8
+
+                            Item {
+                                width: 30
+                                height: 30
+                                anchors.verticalCenter: parent.verticalCenter
+
+                                Image {
+                                    id: railAvatarImg
+                                    anchors.fill: parent
+                                    source: (card.googleAccount && card.googleAccount.isLoggedIn && card.googleAccount.avatar) ? card.googleAccount.avatar : ""
+                                    visible: false
+                                    fillMode: Image.PreserveAspectCrop
+                                    smooth: true
+                                    mipmap: true
+                                }
+
+                                Rectangle {
+                                    id: railAvatarMask
+                                    anchors.fill: parent
+                                    radius: width / 2
+                                    visible: false
+                                }
+
+                                OpacityMask {
+                                    anchors.fill: parent
+                                    source: railAvatarImg
+                                    maskSource: railAvatarMask
+                                    visible: (card.googleAccount && card.googleAccount.isLoggedIn && card.googleAccount.avatar && card.googleAccount.avatar.length > 0 && railAvatarImg.status === Image.Ready)
+                                }
+
+                                Rectangle {
+                                    anchors.fill: parent
+                                    radius: width / 2
+                                    color: "transparent"
+                                    border.color: Theme.accent
+                                    border.width: 1
+                                    visible: (card.googleAccount && card.googleAccount.isLoggedIn && card.googleAccount.avatar && card.googleAccount.avatar.length > 0)
+                                }
+
+                                Glyph {
+                                    name: "user"
+                                    size: 14
+                                    color: Theme.accent
+                                    anchors.centerIn: parent
+                                    visible: !card.googleAccount || !card.googleAccount.isLoggedIn || !card.googleAccount.avatar || card.googleAccount.avatar.length === 0 || railAvatarImg.status !== Image.Ready
+                                }
+                            }
+
+                            Column {
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: parent.width - 44
+                                spacing: 1
+
+                                Text {
+                                    text: {
+                                        if (!card.googleAccount || !card.googleAccount.isLoggedIn) {
+                                            return "Conta Google";
+                                        }
+                                        var raw = card.googleAccount.givenName || card.googleAccount.name || "";
+                                        raw = raw.trim();
+                                        return raw.length > 0 ? raw.split(" ")[0] : "Conta Google";
+                                    }
+                                    color: Theme.foreground
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: 11
+                                    font.bold: true
+                                    elide: Text.ElideRight
+                                    width: parent.width
+                                }
+
+                                Row {
+                                    spacing: 4
+                                    Rectangle {
+                                        width: 6
+                                        height: 6
+                                        radius: 3
+                                        color: (card.googleAccount && card.googleAccount.isLoggedIn) ? Theme.green : Theme.muted
+                                        anchors.verticalCenter: parent.verticalCenter
+                                    }
+                                    Text {
+                                        text: (card.googleAccount && card.googleAccount.isLoggedIn) ? "Conectado" : "Não conectado"
+                                        color: Theme.dimForeground
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: 10
+                                        anchors.verticalCenter: parent.verticalCenter
+                                    }
+                                }
+                            }
+                        }
+
+                        MouseArea {
+                            id: profileSidebarMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: card.activeSection = "sync"
+                        }
+                    }
+
                     // Navigation items
                     Repeater {
                         model: [
-                            { id: "engine", label: "Motor Web", glyph: "globe" },
-                            { id: "search", label: "Pesquisa", glyph: "search" },
-                            { id: "languages", label: "Idiomas", glyph: "type" },
-                            { id: "sync", label: "Conta & Sync", glyph: "lock" },
-                            { id: "passwords", label: "Senhas", glyph: "key" },
-                            { id: "extensions", label: "Extensões", glyph: "archive-out" },
-                            { id: "appearance", label: "Aparência", glyph: "contrast" },
-                            { id: "about", label: "Sobre", glyph: "keyboard" }
+                            { id: "engine", labelKey: "tab_engine", glyph: "globe" },
+                            { id: "search", labelKey: "tab_search", glyph: "search" },
+                            { id: "languages", labelKey: "tab_languages", glyph: "type" },
+                            { id: "sync", labelKey: "tab_sync", glyph: "lock" },
+                            { id: "passwords", labelKey: "tab_passwords", glyph: "key" },
+                            { id: "extensions", labelKey: "tab_extensions", glyph: "archive-out" },
+                            { id: "appearance", labelKey: "tab_appearance", glyph: "contrast" },
+                            { id: "about", labelKey: "tab_about", glyph: "keyboard" }
                         ]
 
                         Rectangle {
@@ -211,7 +351,7 @@ Item {
                                 }
 
                                 Text {
-                                    text: modelData.label
+                                    text: I18n.t(card.currentLanguage, modelData.labelKey)
                                     color: card.activeSection === modelData.id ? Theme.foreground : Theme.dimForeground
                                     font.pixelSize: Theme.fontBody
                                     font.bold: card.activeSection === modelData.id
@@ -228,35 +368,6 @@ Item {
                 width: parent.width - 210
                 height: parent.height
                 color: "transparent"
-
-                // Close Button Top Right
-                Rectangle {
-                    width: 28
-                    height: 28
-                    radius: root.itemRadius
-                    anchors.top: parent.top
-                    anchors.right: parent.right
-                    anchors.margins: 14
-                    color: closeMouse.containsMouse ? Theme.selection : "transparent"
-                    border.color: closeMouse.containsMouse ? Theme.accent : "transparent"
-                    border.width: 1
-                    z: 10
-
-                    Text {
-                        text: "✕"
-                        color: Theme.foreground
-                        anchors.centerIn: parent
-                        font.pixelSize: 12
-                    }
-
-                    MouseArea {
-                        id: closeMouse
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: bridge.settingsVisible = false
-                    }
-                }
 
                 // Section 1: Motor Web (Chromium vs Firefox)
                 Item {
@@ -375,6 +486,103 @@ Item {
                                         text: "Alterna páginas para a instância Gecko/Zen com máxima privacidade."
                                         color: Theme.dimForeground
                                         font.pixelSize: Theme.fontCaption
+                                    }
+                                }
+                            }
+                        }
+
+                        // System Default Browser Section
+                        Item { width: parent.width; height: 10 }
+
+                        Text {
+                            text: "Navegador Padrão do Sistema"
+                            color: Theme.foreground
+                            font.pixelSize: 18
+                            font.bold: true
+                        }
+
+                        Rectangle {
+                            id: defaultBrowserCard
+                            width: parent.width
+                            height: 72
+                            radius: root.itemRadius
+                            color: Qt.rgba(1, 1, 1, 0.02)
+                            border.color: Theme.border
+                            border.width: 1
+
+                            property bool isDefault: false
+
+                            Component.onCompleted: checkDefault()
+                            Connections {
+                                target: root
+                                function onVisibleChanged() {
+                                    if (root.visible) defaultBrowserCard.checkDefault();
+                                }
+                            }
+                            function checkDefault() {
+                                isDefault = bridge.isDefaultBrowser();
+                            }
+
+                            Row {
+                                anchors.fill: parent
+                                anchors.margins: 14
+                                spacing: 14
+
+                                Glyph {
+                                    name: defaultBrowserCard.isDefault ? "check" : "globe"
+                                    size: 22
+                                    color: defaultBrowserCard.isDefault ? Theme.green : Theme.accent
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+
+                                Column {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: parent.width - defaultBrowserBtn.width - 60
+                                    spacing: 3
+
+                                    Text {
+                                        text: defaultBrowserCard.isDefault ? "Focus é o seu navegador padrão" : "Definir Focus como navegador padrão"
+                                        color: Theme.foreground
+                                        font.pixelSize: Theme.fontBody
+                                        font.bold: true
+                                    }
+                                    Text {
+                                        text: defaultBrowserCard.isDefault
+                                              ? "Links abertos em outros aplicativos e no terminal abrirão no Focus."
+                                              : "Torne o Focus seu navegador padrão para abrir links de e-mails, chat e apps."
+                                        color: Theme.dimForeground
+                                        font.pixelSize: Theme.fontCaption
+                                        elide: Text.ElideRight
+                                        width: parent.width
+                                    }
+                                }
+
+                                Rectangle {
+                                    id: defaultBrowserBtn
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: defaultBrowserCard.isDefault ? 110 : 140
+                                    height: 32
+                                    radius: root.itemRadius
+                                    color: defaultBrowserCard.isDefault ? Qt.rgba(0.2, 0.8, 0.4, 0.12) : Theme.accent
+                                    border.color: defaultBrowserCard.isDefault ? Theme.green : "transparent"
+                                    border.width: 1
+
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: defaultBrowserCard.isDefault ? "✓ Padrão" : "Definir Padrão"
+                                        color: defaultBrowserCard.isDefault ? Theme.green : Theme.background
+                                        font.bold: true
+                                        font.pixelSize: 11
+                                    }
+
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: {
+                                            bridge.setAsDefaultBrowser();
+                                            card.updateConfig("asked_default_browser", true);
+                                            defaultBrowserCard.checkDefault();
+                                        }
                                     }
                                 }
                             }
@@ -547,14 +755,14 @@ Item {
                         width: parent.width
 
                         Text {
-                            text: "Idiomas do Navegador"
+                            text: I18n.t(card.currentLanguage, "languages_title")
                             color: Theme.foreground
                             font.pixelSize: 18
                             font.bold: true
                         }
 
                         Text {
-                            text: "Selecione o idioma preferencial para páginas da web e requisições HTTP (Accept-Language). O Focus utiliza o Inglês (English) como idioma padrão."
+                            text: I18n.t(card.currentLanguage, "languages_desc")
                             color: Theme.dimForeground
                             font.pixelSize: Theme.fontBody
                             width: parent.width
@@ -600,7 +808,9 @@ Item {
                                             hoverEnabled: true
                                             cursorShape: Qt.PointingHandCursor
                                             onClicked: {
+                                                card.currentLanguage = modelData.code;
                                                 card.updateConfig("language", modelData.code);
+                                                root.languageChanged(modelData.code);
                                             }
                                         }
 
@@ -634,15 +844,15 @@ Item {
                                                         font.pixelSize: 11
                                                     }
                                                     Rectangle {
-                                                        height: 16
-                                                        width: 54
-                                                        radius: 8
+                                                        height: 18
+                                                        width: 58
+                                                        radius: 9
                                                         color: Theme.accent
-                                                        visible: modelData.code === "en-US"
+                                                        visible: card.currentLanguage === modelData.code
                                                         anchors.verticalCenter: parent.verticalCenter
 
                                                         Text {
-                                                            text: "PADRÃO"
+                                                            text: "ATIVO"
                                                             font.pixelSize: 9
                                                             font.bold: true
                                                             color: Theme.background
@@ -702,130 +912,634 @@ Item {
                         // Google Account Card
                         Rectangle {
                             width: parent.width
-                            height: 64
+                            height: googleCardCol.implicitHeight + 28
                             radius: root.itemRadius
                             color: Qt.rgba(1, 1, 1, 0.03)
-                            border.color: Theme.border
+                            border.color: (card.googleAccount && card.googleAccount.isLoggedIn) ? Theme.accent : Theme.border
                             border.width: 1
 
-                            Row {
-                                anchors.verticalCenter: parent.verticalCenter
+                            Column {
+                                id: googleCardCol
                                 anchors.left: parent.left
-                                anchors.leftMargin: 16
-                                spacing: 14
-
-                                Glyph {
-                                    name: "lock"
-                                    size: 20
-                                    color: Theme.accent
-                                    anchors.verticalCenter: parent.verticalCenter
-                                }
-
-                                Column {
-                                    spacing: 2
-                                    Text {
-                                        text: "Login na Conta Google"
-                                        color: Theme.foreground
-                                        font.pixelSize: Theme.fontBody
-                                        font.bold: true
-                                    }
-                                    Text {
-                                        text: "Abra a autenticação do Google para sincronizar suas sessões."
-                                        color: Theme.dimForeground
-                                        font.pixelSize: Theme.fontCaption
-                                    }
-                                }
-                            }
-
-                            Rectangle {
-                                width: 100
-                                height: 30
-                                radius: root.itemRadius
                                 anchors.right: parent.right
-                                anchors.rightMargin: 14
-                                anchors.verticalCenter: parent.verticalCenter
-                                color: Theme.accent
+                                anchors.top: parent.top
+                                anchors.margins: 14
+                                spacing: 12
 
-                                Text {
-                                    text: "Login"
-                                    color: Theme.background
-                                    font.pixelSize: 12
-                                    font.bold: true
-                                    anchors.centerIn: parent
+                                Item {
+                                    width: parent.width
+                                    height: 42
+
+                                    // Avatar do Usuário Google com Máscara Circular Real
+                                    Item {
+                                        id: googleSyncAvatarItem
+                                        width: 40
+                                        height: 40
+                                        anchors.left: parent.left
+                                        anchors.verticalCenter: parent.verticalCenter
+
+                                        Image {
+                                            id: googleSyncAvatarImg
+                                            anchors.fill: parent
+                                            source: (card.googleAccount && card.googleAccount.isLoggedIn && card.googleAccount.avatar) ? card.googleAccount.avatar : ""
+                                            visible: false
+                                            fillMode: Image.PreserveAspectCrop
+                                            smooth: true
+                                            mipmap: true
+                                        }
+
+                                        Rectangle {
+                                            id: googleSyncAvatarMask
+                                            anchors.fill: parent
+                                            radius: width / 2
+                                            visible: false
+                                        }
+
+                                        OpacityMask {
+                                            anchors.fill: parent
+                                            source: googleSyncAvatarImg
+                                            maskSource: googleSyncAvatarMask
+                                            visible: (card.googleAccount && card.googleAccount.isLoggedIn && card.googleAccount.avatar && card.googleAccount.avatar.length > 0 && googleSyncAvatarImg.status === Image.Ready)
+                                        }
+
+                                        Rectangle {
+                                            anchors.fill: parent
+                                            radius: width / 2
+                                            color: "transparent"
+                                            border.color: Theme.accent
+                                            border.width: 1
+                                            visible: (card.googleAccount && card.googleAccount.isLoggedIn && card.googleAccount.avatar && card.googleAccount.avatar.length > 0)
+                                        }
+
+                                        Glyph {
+                                            name: "user"
+                                            size: 18
+                                            color: Theme.accent
+                                            anchors.centerIn: parent
+                                            visible: !card.googleAccount || !card.googleAccount.isLoggedIn || !card.googleAccount.avatar || card.googleAccount.avatar.length === 0 || googleSyncAvatarImg.status !== Image.Ready
+                                        }
+                                    }
+
+                                    // Informações do Usuário
+                                    Column {
+                                        anchors.left: googleSyncAvatarItem.right
+                                        anchors.leftMargin: 12
+                                        anchors.right: googleSyncActionsRow.left
+                                        anchors.rightMargin: 12
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        spacing: 2
+
+                                        Row {
+                                            spacing: 8
+                                            width: parent.width
+
+                                            Text {
+                                                text: (card.googleAccount && card.googleAccount.isLoggedIn)
+                                                      ? (card.googleAccount.name || "Conta Google")
+                                                      : "Login na Conta Google"
+                                                color: Theme.foreground
+                                                font.pixelSize: Theme.fontBody
+                                                font.bold: true
+                                                elide: Text.ElideRight
+                                            }
+
+                                            Rectangle {
+                                                visible: card.googleAccount && card.googleAccount.isLoggedIn
+                                                height: 18
+                                                width: 80
+                                                radius: 9
+                                                color: Qt.rgba(0, 1, 0, 0.1)
+                                                border.color: Theme.green
+                                                border.width: 1
+                                                anchors.verticalCenter: parent.verticalCenter
+
+                                                Row {
+                                                    anchors.centerIn: parent
+                                                    spacing: 4
+                                                    Rectangle { width: 5; height: 5; radius: 2.5; color: Theme.green; anchors.verticalCenter: parent.verticalCenter }
+                                                    Text { text: "Conectado"; color: Theme.green; font.pixelSize: 10; font.bold: true; anchors.verticalCenter: parent.verticalCenter }
+                                                }
+                                            }
+                                        }
+
+                                        Text {
+                                            text: (card.googleAccount && card.googleAccount.isLoggedIn)
+                                                  ? (card.googleAccount.email || "Sessão persistente ativa no Focus.")
+                                                  : "Abra a autenticação do Google ou importe do Chrome."
+                                            color: Theme.dimForeground
+                                            font.pixelSize: Theme.fontCaption
+                                            elide: Text.ElideRight
+                                            width: parent.width
+                                        }
+                                    }
+
+                                    // Botões de Ação à direita no topo
+                                    Row {
+                                        id: googleSyncActionsRow
+                                        anchors.right: parent.right
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        spacing: 8
+
+                                        // Quando desconectado: Importar Chrome e Login
+                                        Rectangle {
+                                            id: importChromeBtn
+                                            property bool isImportDone: false
+                                            width: isImportDone ? 115 : 110
+                                            height: 28
+                                            radius: root.itemRadius
+                                            color: isImportDone ? Qt.rgba(0.2, 0.8, 0.4, 0.15) : Qt.rgba(1, 1, 1, 0.05)
+                                            border.color: isImportDone ? Theme.green : Theme.border
+                                            border.width: 1
+                                            visible: !card.googleAccount || !card.googleAccount.isLoggedIn
+
+                                            Timer {
+                                                id: importFeedbackTimer
+                                                interval: 2500
+                                                onTriggered: importChromeBtn.isImportDone = false
+                                            }
+
+                                            Text {
+                                                text: importChromeBtn.isImportDone ? "✓ Importado!" : "Importar Chrome"
+                                                color: importChromeBtn.isImportDone ? Theme.green : Theme.foreground
+                                                font.pixelSize: 11
+                                                font.bold: importChromeBtn.isImportDone
+                                                anchors.centerIn: parent
+                                            }
+
+                                            MouseArea {
+                                                anchors.fill: parent
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: {
+                                                    bridge.syncGoogleAccountFromChrome();
+                                                    importChromeBtn.isImportDone = true;
+                                                    importFeedbackTimer.restart();
+                                                }
+                                            }
+                                        }
+
+                                        Rectangle {
+                                            width: 75
+                                            height: 28
+                                            radius: root.itemRadius
+                                            color: Theme.accent
+                                            visible: !card.googleAccount || !card.googleAccount.isLoggedIn
+
+                                            Text {
+                                                text: "Login"
+                                                color: Theme.background
+                                                font.pixelSize: 12
+                                                font.bold: true
+                                                anchors.centerIn: parent
+                                            }
+
+                                            MouseArea {
+                                                anchors.fill: parent
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: {
+                                                    bridge.settingsVisible = false;
+                                                    launcher.openUrlInTab("https://accounts.google.com");
+                                                }
+                                            }
+                                        }
+
+                                        // Quando conectado: Botão Sair no canto superior direito
+                                        Rectangle {
+                                            width: 65
+                                            height: 26
+                                            radius: root.itemRadius
+                                            color: Qt.rgba(1, 0, 0, 0.08)
+                                            border.color: Theme.red
+                                            border.width: 1
+                                            visible: card.googleAccount && card.googleAccount.isLoggedIn
+
+                                            Text { text: "Sair"; color: Theme.red; font.pixelSize: 11; font.bold: true; anchors.centerIn: parent }
+
+                                            MouseArea {
+                                                anchors.fill: parent
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: bridge.logoutGoogleAccount()
+                                            }
+                                        }
+                                    }
                                 }
 
-                                MouseArea {
-                                    anchors.fill: parent
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: {
-                                        bridge.settingsVisible = false;
-                                        launcher.openUrlInTab("https://accounts.google.com");
+                                // Linha de Serviços do Google quando conectado (Flow responsivo - nunca vaza)
+                                Flow {
+                                    width: parent.width
+                                    spacing: 8
+                                    visible: card.googleAccount && card.googleAccount.isLoggedIn
+
+                                    Rectangle {
+                                        height: 26
+                                        width: 105
+                                        radius: root.itemRadius
+                                        color: Qt.rgba(1, 1, 1, 0.06)
+                                        border.color: Theme.border
+                                        border.width: 1
+
+                                        Text { text: "Minha Conta"; color: Theme.foreground; font.pixelSize: 11; anchors.centerIn: parent }
+
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: {
+                                                bridge.settingsVisible = false;
+                                                launcher.openUrlInTab("https://myaccount.google.com");
+                                            }
+                                        }
+                                    }
+
+                                    Rectangle {
+                                        height: 26
+                                        width: 70
+                                        radius: root.itemRadius
+                                        color: Qt.rgba(1, 1, 1, 0.06)
+                                        border.color: Theme.border
+                                        border.width: 1
+
+                                        Text { text: "Gmail"; color: Theme.foreground; font.pixelSize: 11; anchors.centerIn: parent }
+
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: {
+                                                bridge.settingsVisible = false;
+                                                launcher.openUrlInTab("https://mail.google.com");
+                                            }
+                                        }
+                                    }
+
+                                    Rectangle {
+                                        height: 26
+                                        width: 80
+                                        radius: root.itemRadius
+                                        color: Qt.rgba(1, 1, 1, 0.06)
+                                        border.color: Theme.border
+                                        border.width: 1
+
+                                        Text { text: "YouTube"; color: Theme.foreground; font.pixelSize: 11; anchors.centerIn: parent }
+
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: {
+                                                bridge.settingsVisible = false;
+                                                launcher.openUrlInTab("https://youtube.com");
+                                            }
+                                        }
+                                    }
+
+                                    // Botão de Login Web / Autenticar Sessão
+                                    Rectangle {
+                                        height: 26
+                                        width: 130
+                                        radius: root.itemRadius
+                                        color: Qt.rgba(1, 1, 1, 0.06)
+                                        border.color: Theme.accent
+                                        border.width: 1
+
+                                        Row {
+                                            anchors.centerIn: parent
+                                            spacing: 5
+                                            Glyph { name: "lock"; size: 10; color: Theme.accent; anchors.verticalCenter: parent.verticalCenter }
+                                            Text {
+                                                text: "Login no Navegador"
+                                                color: Theme.accent
+                                                font.pixelSize: 11
+                                                font.bold: true
+                                                anchors.verticalCenter: parent.verticalCenter
+                                            }
+                                        }
+
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: {
+                                                bridge.settingsVisible = false;
+                                                launcher.openUrlInTab("https://accounts.google.com");
+                                            }
+                                        }
+                                    }
+
+                                    Rectangle {
+                                        id: syncGoogleBtn
+                                        property bool isSyncDone: false
+                                        height: 26
+                                        width: bridge.autoSyncEnabled ? 150 : (isSyncDone ? 115 : 95)
+                                        radius: root.itemRadius
+                                        color: bridge.autoSyncEnabled ? Qt.rgba(0.2, 0.8, 0.4, 0.15) : (isSyncDone ? Qt.rgba(0.2, 0.8, 0.4, 0.15) : Qt.rgba(1, 1, 1, 0.06))
+                                        border.color: (bridge.autoSyncEnabled || isSyncDone) ? Theme.green : Theme.border
+                                        border.width: 1
+
+                                        Timer {
+                                            id: syncFeedbackTimer
+                                            interval: 2500
+                                            onTriggered: syncGoogleBtn.isSyncDone = false
+                                        }
+
+                                        Row {
+                                            anchors.centerIn: parent
+                                            spacing: 5
+                                            Rectangle {
+                                                width: 6
+                                                height: 6
+                                                radius: 3
+                                                color: Theme.green
+                                                visible: bridge.autoSyncEnabled
+                                                anchors.verticalCenter: parent.verticalCenter
+                                                SequentialAnimation on opacity {
+                                                    running: bridge.autoSyncEnabled
+                                                    loops: Animation.Infinite
+                                                    NumberAnimation { from: 1.0; to: 0.3; duration: 900 }
+                                                    NumberAnimation { from: 0.3; to: 1.0; duration: 900 }
+                                                }
+                                            }
+                                            Text {
+                                                text: bridge.autoSyncEnabled ? "Sincronizando Auto" : (syncGoogleBtn.isSyncDone ? "✓ Sincronizado!" : "Sincronizar")
+                                                color: (bridge.autoSyncEnabled || syncGoogleBtn.isSyncDone) ? Theme.green : Theme.accent
+                                                font.pixelSize: 11
+                                                font.bold: true
+                                                anchors.verticalCenter: parent.verticalCenter
+                                            }
+                                        }
+
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: {
+                                                bridge.syncGoogleAccountFromChrome();
+                                                bridge.syncChrome();
+                                                bridge.startAutoSync();
+                                                card.updateConfig("auto_sync_google", true);
+                                                syncGoogleBtn.isSyncDone = true;
+                                                syncFeedbackTimer.restart();
+                                            }
+                                        }
                                     }
                                 }
                             }
                         }
 
-                        // Chrome Sync Card
+                        // Chrome / Chromium / Brave Sync Card
                         Rectangle {
                             width: parent.width
-                            height: 64
+                            height: 116
                             radius: root.itemRadius
                             color: Qt.rgba(1, 1, 1, 0.03)
                             border.color: Theme.border
                             border.width: 1
 
+                            Column {
+                                anchors.fill: parent
+                                anchors.margins: 14
+                                spacing: 12
+
+                                // Linha 1 (Superior): Ícone + Título + Status
+                                Row {
+                                    width: parent.width
+                                    spacing: 14
+
+                                    Glyph {
+                                        name: "refresh"
+                                        size: 22
+                                        color: Theme.accent
+                                        anchors.verticalCenter: parent.verticalCenter
+                                    }
+
+                                    Column {
+                                        spacing: 3
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        width: parent.width - 40
+
+                                        Text {
+                                            text: "Sincronizar Navegador (Abas, Favoritos & Histórico)"
+                                            color: Theme.foreground
+                                            font.pixelSize: Theme.fontBody
+                                            font.bold: true
+                                            font.family: Theme.fontFamily
+                                        }
+                                        Text {
+                                            text: {
+                                                try {
+                                                    var tabs = JSON.parse(bridge.openTabsJson || "[]");
+                                                    var bmarks = JSON.parse(bridge.bookmarksJson || "[]");
+                                                    var hist = JSON.parse(bridge.historyJson || "[]");
+                                                    if (tabs.length > 0 || bmarks.length > 0 || hist.length > 0) {
+                                                        return tabs.length + " abas abertas • " + bmarks.length + " favoritos • " + hist.length + " itens de histórico";
+                                                    }
+                                                } catch(e) {}
+                                                return "Puxa as abas abertas, favoritos e histórico do Chromium, Chrome ou Brave.";
+                                            }
+                                            color: Theme.dimForeground
+                                            font.pixelSize: Theme.fontCaption
+                                            font.family: Theme.fontFamily
+                                            elide: Text.ElideRight
+                                            width: parent.width
+                                        }
+                                    }
+                                }
+
+                                // Linha 2 (Inferior - Posicionada mais baixo para NÃO ficar em cima de outros itens)
+                                Item {
+                                    width: parent.width
+                                    height: 32
+
+                                    // Aviso de modo econômico
+                                    Text {
+                                        anchors.left: parent.left
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        text: "Modo econômico ativo (abas em repouso para economizar CPU/RAM)"
+                                        color: Theme.dimForeground
+                                        font.pixelSize: 10
+                                        font.family: Theme.fontFamily
+                                        visible: parent.width > 480
+                                    }
+
+                                    Row {
+                                        id: syncButtonsRow
+                                        anchors.right: parent.right
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        spacing: 8
+
+                                        // Botão Sincronizar
+                                        Rectangle {
+                                            width: bridge.autoSyncEnabled ? 135 : 105
+                                            height: 30
+                                            radius: root.itemRadius
+                                            color: bridge.autoSyncEnabled ? Qt.rgba(0.2, 0.8, 0.4, 0.12) : Qt.rgba(1, 1, 1, 0.05)
+                                            border.color: bridge.autoSyncEnabled ? Theme.green : Theme.border
+                                            border.width: 1
+
+                                            Row {
+                                                anchors.centerIn: parent
+                                                spacing: 5
+                                                Glyph {
+                                                    name: "refresh"
+                                                    size: 11
+                                                    color: bridge.autoSyncEnabled ? Theme.green : Theme.foreground
+                                                    anchors.verticalCenter: parent.verticalCenter
+                                                }
+                                                Text {
+                                                    text: bridge.autoSyncEnabled ? "✓ Auto-Sync Ativo" : "Sincronizar"
+                                                    color: bridge.autoSyncEnabled ? Theme.green : Theme.foreground
+                                                    font.pixelSize: 11
+                                                    font.bold: bridge.autoSyncEnabled
+                                                    anchors.verticalCenter: parent.verticalCenter
+                                                }
+                                            }
+
+                                            MouseArea {
+                                                anchors.fill: parent
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: {
+                                                    bridge.syncGoogleAccountFromChrome();
+                                                    bridge.syncChrome();
+                                                    bridge.startAutoSync();
+                                                    card.updateConfig("auto_sync_google", true);
+                                                }
+                                            }
+                                        }
+
+                                        // Botão Abrir Abas Importadas no Grupo Principal (Econômico / Suspensa)
+                                        Rectangle {
+                                            property var tabsCount: {
+                                                try { return JSON.parse(bridge.openTabsJson || "[]").length; } catch(e) { return 0; }
+                                            }
+                                            visible: tabsCount > 0
+                                            width: 195
+                                            height: 30
+                                            radius: root.itemRadius
+                                            color: Theme.selection
+                                            border.color: Theme.accent
+                                            border.width: 1
+
+                                            Row {
+                                                anchors.centerIn: parent
+                                                spacing: 6
+                                                Glyph { name: "plus"; size: 11; color: Theme.accent; anchors.verticalCenter: parent.verticalCenter }
+                                                Text {
+                                                    text: "Importar " + parent.parent.tabsCount + " Abas (Leve)"
+                                                    color: Theme.accent
+                                                    font.pixelSize: 11
+                                                    font.bold: true
+                                                    anchors.verticalCenter: parent.verticalCenter
+                                                }
+                                            }
+
+                                            MouseArea {
+                                                anchors.fill: parent
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: {
+                                                    if (window && window.importTabsBulk) {
+                                                        window.importTabsBulk(bridge.openTabsJson, "Principal");
+                                                    }
+                                                    bridge.settingsVisible = false;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Auto-Sync Contínuo com Outros Navegadores Google
+                        Rectangle {
+                            width: parent.width
+                            height: 68
+                            radius: root.itemRadius
+                            color: bridge.autoSyncEnabled ? Qt.rgba(0.2, 0.8, 0.4, 0.05) : Qt.rgba(1, 1, 1, 0.02)
+                            border.color: bridge.autoSyncEnabled ? Theme.green : Theme.border
+                            border.width: 1
+
                             Row {
-                                anchors.verticalCenter: parent.verticalCenter
-                                anchors.left: parent.left
-                                anchors.leftMargin: 16
+                                anchors.fill: parent
+                                anchors.margins: 14
                                 spacing: 14
 
                                 Glyph {
                                     name: "refresh"
-                                    size: 20
-                                    color: Theme.foreground
+                                    size: 22
+                                    color: bridge.autoSyncEnabled ? Theme.green : Theme.dimForeground
                                     anchors.verticalCenter: parent.verticalCenter
                                 }
 
                                 Column {
-                                    spacing: 2
-                                    Text {
-                                        text: "Importar Favoritos & Histórico"
-                                        color: Theme.foreground
-                                        font.pixelSize: Theme.fontBody
-                                        font.bold: true
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: parent.width - autoSyncToggleBtn.width - 60
+                                    spacing: 3
+
+                                    Row {
+                                        spacing: 8
+                                        Text {
+                                            text: "Sincronização Contínua em Segundo Plano"
+                                            color: Theme.foreground
+                                            font.pixelSize: Theme.fontBody
+                                            font.bold: true
+                                        }
+                                        Rectangle {
+                                            visible: bridge.autoSyncEnabled
+                                            height: 16
+                                            width: 72
+                                            radius: 8
+                                            color: Qt.rgba(0, 1, 0, 0.1)
+                                            border.color: Theme.green
+                                            border.width: 1
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            Row {
+                                                anchors.centerIn: parent
+                                                spacing: 4
+                                                Rectangle {
+                                                    width: 5; height: 5; radius: 2.5; color: Theme.green
+                                                    anchors.verticalCenter: parent.verticalCenter
+                                                    SequentialAnimation on opacity {
+                                                        loops: Animation.Infinite
+                                                        NumberAnimation { from: 1; to: 0.2; duration: 800 }
+                                                        NumberAnimation { from: 0.2; to: 1; duration: 800 }
+                                                    }
+                                                }
+                                                Text { text: "ATIVO"; color: Theme.green; font.pixelSize: 8; font.bold: true; anchors.verticalCenter: parent.verticalCenter }
+                                            }
+                                        }
                                     }
+
                                     Text {
-                                        text: "Sincroniza os favoritos locais do Google Chrome/Chromium para o lançador."
+                                        text: bridge.autoSyncEnabled
+                                              ? "Sincronizando continuamente abas, favoritos e sessão Google com outros navegadores."
+                                              : "Mantém dados e conta sincronizados continuamente com outros navegadores Google na mesma conta."
                                         color: Theme.dimForeground
                                         font.pixelSize: Theme.fontCaption
+                                        elide: Text.ElideRight
+                                        width: parent.width
                                     }
                                 }
-                            }
 
-                            Rectangle {
-                                width: 100
-                                height: 30
-                                radius: root.itemRadius
-                                anchors.right: parent.right
-                                anchors.rightMargin: 14
-                                anchors.verticalCenter: parent.verticalCenter
-                                color: Theme.selection
-                                border.color: Theme.accent
-                                border.width: 1
+                                Rectangle {
+                                    id: autoSyncToggleBtn
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: 105
+                                    height: 30
+                                    radius: root.itemRadius
+                                    color: bridge.autoSyncEnabled ? Qt.rgba(0.2, 0.8, 0.4, 0.15) : Qt.rgba(1, 1, 1, 0.05)
+                                    border.color: bridge.autoSyncEnabled ? Theme.green : Theme.border
+                                    border.width: 1
 
-                                Text {
-                                    text: "Sincronizar"
-                                    color: Theme.foreground
-                                    font.pixelSize: 12
-                                    font.bold: true
-                                    anchors.centerIn: parent
-                                }
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: bridge.autoSyncEnabled ? "Desativar" : "Ativar Auto"
+                                        color: bridge.autoSyncEnabled ? Theme.green : Theme.foreground
+                                        font.pixelSize: 11
+                                        font.bold: true
+                                    }
 
-                                MouseArea {
-                                    anchors.fill: parent
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: bridge.syncChrome()
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: {
+                                            var nextState = !bridge.autoSyncEnabled;
+                                            bridge.autoSyncEnabled = nextState;
+                                            card.updateConfig("auto_sync_google", nextState);
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -944,22 +1658,24 @@ Item {
                         // Card de Integração com o Bitwarden (Gerenciador de Chaves Padrão)
                         Rectangle {
                             width: parent.width
-                            height: 66
+                            height: 78
                             radius: root.itemRadius
                             color: (card.config && card.config.bitwarden_enabled) ? Theme.selection : Qt.rgba(1, 1, 1, 0.03)
                             border.color: (card.config && card.config.bitwarden_enabled) ? Theme.accent : Theme.border
                             border.width: 1
 
-                            Row {
+                            Item {
                                 anchors.fill: parent
-                                anchors.margins: 10
-                                spacing: 12
+                                anchors.margins: 12
 
+                                // Ícone do Bitwarden à esquerda
                                 Rectangle {
+                                    id: bwIconRect
                                     width: 38
                                     height: 38
                                     radius: root.itemRadius
                                     color: (card.config && card.config.bitwarden_enabled) ? Theme.accent : Qt.rgba(1, 1, 1, 0.06)
+                                    anchors.left: parent.left
                                     anchors.verticalCenter: parent.verticalCenter
 
                                     Glyph {
@@ -970,19 +1686,131 @@ Item {
                                     }
                                 }
 
-                                Column {
-                                    width: parent.width - 270
+                                // Botões de Ação à direita (Fixados rigidamente sem colisão)
+                                Row {
+                                    id: bwActionsRow
+                                    anchors.right: parent.right
                                     anchors.verticalCenter: parent.verticalCenter
-                                    spacing: 3
+                                    spacing: 8
+
+                                    // Botão Desbloquear / Bloquear
+                                    Rectangle {
+                                        width: 82
+                                        height: 26
+                                        radius: root.itemRadius
+                                        color: lockToggleMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(1, 1, 1, 0.06)
+                                        border.color: Theme.border
+                                        border.width: 1
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        visible: (card.config && card.config.bitwarden_enabled) && bridge.isBitwardenInstalled()
+
+                                        Text {
+                                            text: bridge.bitwardenUnlocked ? "Bloquear" : "Desbloquear"
+                                            color: bridge.bitwardenUnlocked ? Theme.dimForeground : Theme.accent
+                                            font.pixelSize: 10
+                                            font.bold: true
+                                            font.family: Theme.fontFamily
+                                            anchors.centerIn: parent
+                                        }
+
+                                        MouseArea {
+                                            id: lockToggleMouse
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: {
+                                                if (bridge.bitwardenUnlocked) {
+                                                    bridge.lockBitwarden();
+                                                } else {
+                                                    root.requestBitwardenUnlock();
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    // Botão Abrir Cofre
+                                    Rectangle {
+                                        width: 54
+                                        height: 26
+                                        radius: root.itemRadius
+                                        color: openBwMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(1, 1, 1, 0.06)
+                                        border.color: Theme.border
+                                        border.width: 1
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        visible: (card.config && card.config.bitwarden_enabled) && bridge.isBitwardenInstalled()
+
+                                        Text {
+                                            text: "Cofre"
+                                            color: Theme.foreground
+                                            font.pixelSize: 10
+                                            font.bold: true
+                                            font.family: Theme.fontFamily
+                                            anchors.centerIn: parent
+                                        }
+
+                                        MouseArea {
+                                            id: openBwMouse
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: bridge.openBitwarden()
+                                        }
+                                    }
+
+                                    // Switch Toggle Ativar/Desativar
+                                    Rectangle {
+                                        width: 44
+                                        height: 22
+                                        radius: 11
+                                        color: (card.config && card.config.bitwarden_enabled) ? Theme.accent : Qt.rgba(1, 1, 1, 0.12)
+                                        anchors.verticalCenter: parent.verticalCenter
+
+                                        Rectangle {
+                                            width: 16
+                                            height: 16
+                                            radius: 8
+                                            color: (card.config && card.config.bitwarden_enabled) ? Theme.background : Theme.foreground
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            x: (card.config && card.config.bitwarden_enabled) ? (parent.width - width - 3) : 3
+
+                                            Behavior on x {
+                                                NumberAnimation { duration: 140; easing.type: Easing.OutCubic }
+                                            }
+                                        }
+
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: {
+                                                var cur = (card.config && card.config.bitwarden_enabled) ? true : false;
+                                                card.updateConfig("bitwarden_enabled", !cur);
+                                                if (!cur && !bridge.bitwardenUnlocked) {
+                                                    root.requestBitwardenUnlock();
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // Textos e Badges no centro (limitado entre o ícone e os botões)
+                                Column {
+                                    id: bwContentCol
+                                    anchors.left: bwIconRect.right
+                                    anchors.leftMargin: 12
+                                    anchors.right: bwActionsRow.left
+                                    anchors.rightMargin: 12
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    spacing: 4
 
                                     Row {
                                         spacing: 8
                                         Text {
-                                            text: "Bitwarden (Gerenciador Padrão)"
+                                            text: "Bitwarden"
                                             color: Theme.foreground
                                             font.bold: true
                                             font.pixelSize: 13
                                             font.family: Theme.fontFamily
+                                            anchors.verticalCenter: parent.verticalCenter
                                         }
 
                                         Rectangle {
@@ -1027,115 +1855,15 @@ Item {
 
                                     Text {
                                         text: bridge.bitwardenUnlocked
-                                            ? "Cofre ativo no Focus. Autopreenchimento e salvamento automático estilo Google funcionam nativamente."
+                                            ? "Cofre ativo no Focus. Autopreenchimento de credenciais integrado."
                                             : ((card.config && card.config.bitwarden_enabled)
-                                                ? "Ativo. Desbloqueie com sua Senha Mestra para preencher e salvar credenciais nas páginas."
-                                                : "Ative para utilizar o Bitwarden integrado como seu gerenciador padrão de senhas.")
+                                                ? "Ativo. Desbloqueie com sua Senha Mestra para preencher credenciais."
+                                                : "Ative para utilizar o Bitwarden integrado como seu gerenciador de senhas.")
                                         color: Theme.dimForeground
                                         font.pixelSize: 11
                                         font.family: Theme.fontFamily
                                         elide: Text.ElideRight
                                         width: parent.width
-                                    }
-                                }
-
-                                Row {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    spacing: 8
-
-                                    // Botão Desbloquear / Bloquear
-                                    Rectangle {
-                                        width: 80
-                                        height: 26
-                                        radius: root.itemRadius
-                                        color: lockToggleMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(1, 1, 1, 0.06)
-                                        border.color: Theme.border
-                                        border.width: 1
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        visible: (card.config && card.config.bitwarden_enabled) && bridge.isBitwardenInstalled()
-
-                                        Text {
-                                            text: bridge.bitwardenUnlocked ? "Bloquear" : "Desbloquear"
-                                            color: bridge.bitwardenUnlocked ? Theme.dimForeground : Theme.accent
-                                            font.pixelSize: 10
-                                            font.bold: true
-                                            font.family: Theme.fontFamily
-                                            anchors.centerIn: parent
-                                        }
-
-                                        MouseArea {
-                                            id: lockToggleMouse
-                                            anchors.fill: parent
-                                            hoverEnabled: true
-                                            cursorShape: Qt.PointingHandCursor
-                                            onClicked: {
-                                                if (bridge.bitwardenUnlocked) {
-                                                    bridge.lockBitwarden();
-                                                } else {
-                                                    root.requestBitwardenUnlock();
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    // Botão Abrir App Desktop
-                                    Rectangle {
-                                        width: 28
-                                        height: 28
-                                        radius: root.itemRadius
-                                        color: openBwMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.1) : Qt.rgba(1, 1, 1, 0.05)
-                                        border.color: Theme.border
-                                        border.width: 1
-                                        anchors.verticalCenter: parent.verticalCenter
-
-                                        Glyph {
-                                            name: "key"
-                                            size: 13
-                                            color: Theme.foreground
-                                            anchors.centerIn: parent
-                                        }
-
-                                        MouseArea {
-                                            id: openBwMouse
-                                            anchors.fill: parent
-                                            hoverEnabled: true
-                                            cursorShape: Qt.PointingHandCursor
-                                            onClicked: bridge.openBitwarden()
-                                        }
-                                    }
-
-                                    // Switch Toggle Ativar/Desativar
-                                    Rectangle {
-                                        width: 48
-                                        height: 24
-                                        radius: 12
-                                        color: (card.config && card.config.bitwarden_enabled) ? Theme.accent : Qt.rgba(1, 1, 1, 0.12)
-                                        anchors.verticalCenter: parent.verticalCenter
-
-                                        Rectangle {
-                                            width: 18
-                                            height: 18
-                                            radius: 9
-                                            color: (card.config && card.config.bitwarden_enabled) ? Theme.background : Theme.foreground
-                                            anchors.verticalCenter: parent.verticalCenter
-                                            x: (card.config && card.config.bitwarden_enabled) ? (parent.width - width - 3) : 3
-
-                                            Behavior on x {
-                                                NumberAnimation { duration: 140; easing.type: Easing.OutCubic }
-                                            }
-                                        }
-
-                                        MouseArea {
-                                            anchors.fill: parent
-                                            cursorShape: Qt.PointingHandCursor
-                                            onClicked: {
-                                                var cur = (card.config && card.config.bitwarden_enabled) ? true : false;
-                                                card.updateConfig("bitwarden_enabled", !cur);
-                                                if (!cur && !bridge.bitwardenUnlocked) {
-                                                    root.requestBitwardenUnlock();
-                                                }
-                                            }
-                                        }
                                     }
                                 }
                             }
@@ -1749,39 +2477,85 @@ Item {
                         // Theme Info Card
                         Rectangle {
                             width: parent.width
-                            height: 125
+                            height: themeInfoCol.implicitHeight + 28
                             radius: root.itemRadius
                             color: Qt.rgba(1, 1, 1, 0.03)
                             border.color: Theme.border
                             border.width: 1
 
                             Column {
-                                anchors.fill: parent
+                                id: themeInfoCol
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.top: parent.top
                                 anchors.margins: 14
-                                spacing: 8
+                                spacing: 10
 
                                 Row {
+                                    width: parent.width
                                     spacing: 12
-                                    Text { text: "Modo Atual Ativo:"; color: Theme.dimForeground; font.pixelSize: 12; width: 180 }
-                                    Text { text: card.currentThemeMode === "system" ? ("Sistema (" + Theme.mode + ")") : ((card.currentThemeMode === "dark") ? "Escuro Forçado" : "Claro Forçado"); color: Theme.accent; font.bold: true; font.pixelSize: 12 }
+                                    Text { text: "Modo Atual Ativo:"; color: Theme.dimForeground; font.pixelSize: 12; width: 170 }
+                                    Text {
+                                        text: card.currentThemeMode === "system" ? ("Sistema (" + Theme.mode + ")") : ((card.currentThemeMode === "dark") ? "Escuro Forçado" : "Claro Forçado")
+                                        color: Theme.accent
+                                        font.bold: true
+                                        font.pixelSize: 12
+                                        width: parent.width - 182
+                                        elide: Text.ElideRight
+                                    }
                                 }
 
                                 Row {
+                                    width: parent.width
                                     spacing: 12
-                                    Text { text: "Arredondamento dos Cantos:"; color: Theme.dimForeground; font.pixelSize: 12; width: 180 }
-                                    Text { text: Theme.cornerRadius + "px (Automático via Hyprland)"; color: Theme.foreground; font.bold: true; font.pixelSize: 12 }
+                                    Text { text: "Cantos Arredondados:"; color: Theme.dimForeground; font.pixelSize: 12; width: 170 }
+                                    Text {
+                                        text: Theme.cornerRadius + "px (Automático via Hyprland)"
+                                        color: Theme.foreground
+                                        font.bold: true
+                                        font.pixelSize: 12
+                                        width: parent.width - 182
+                                        elide: Text.ElideRight
+                                    }
                                 }
 
                                 Row {
+                                    width: parent.width
                                     spacing: 12
-                                    Text { text: "Espessura do Contorno:"; color: Theme.dimForeground; font.pixelSize: 12; width: 180 }
-                                    Text { text: Theme.borderSize + "px"; color: Theme.foreground; font.bold: true; font.pixelSize: 12 }
+                                    Text { text: "Espessura da Borda:"; color: Theme.dimForeground; font.pixelSize: 12; width: 170 }
+                                    Text {
+                                        text: Theme.borderSize + "px"
+                                        color: Theme.foreground
+                                        font.bold: true
+                                        font.pixelSize: 12
+                                        width: parent.width - 182
+                                        elide: Text.ElideRight
+                                    }
                                 }
 
                                 Row {
+                                    width: parent.width
                                     spacing: 12
-                                    Text { text: "Seleção de Texto nas Páginas:"; color: Theme.dimForeground; font.pixelSize: 12; width: 180 }
-                                    Text { text: "Injetada na cor de destaque (" + Theme.accent + ") em tempo real"; color: Theme.accent; font.bold: true; font.pixelSize: 12 }
+                                    Text { text: "Destaque do Tema:"; color: Theme.dimForeground; font.pixelSize: 12; width: 170 }
+                                    Row {
+                                        width: parent.width - 182
+                                        spacing: 8
+                                        Rectangle {
+                                            width: 13
+                                            height: 13
+                                            radius: 3
+                                            color: Theme.accent
+                                            anchors.verticalCenter: parent.verticalCenter
+                                        }
+                                        Text {
+                                            text: Theme.accent + " (Omarchy live)"
+                                            color: Theme.accent
+                                            font.bold: true
+                                            font.pixelSize: 12
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            elide: Text.ElideRight
+                                        }
+                                    }
                                 }
                             }
                         }

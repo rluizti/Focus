@@ -1,5 +1,7 @@
 /target
 /build
+/pkg
+*.pkg.tar*
 *.o
 *.a
 *.so

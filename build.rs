@@ -8,7 +8,7 @@ fn main() {
         .build();
 
     println!("cargo:rustc-link-search=native={}/build", dst.display());
-    println!("cargo:rustc-link-lib=static=focusbridge");
+    println!("cargo:rustc-link-lib=static:+whole-archive=focusbridge");
 
     // Link Qt6 libraries
     let libs = [

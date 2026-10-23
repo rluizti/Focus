@@ -23,6 +23,7 @@ if [ "$MODE" == "system" ]; then
 
     sudo mkdir -p /usr/local/share/focus
     sudo cp -r ui /usr/local/share/focus/
+    sudo cp -r assets /usr/local/share/focus/
 
     sudo mkdir -p /usr/share/applications
     sudo install -m 644 focus.desktop /usr/share/applications/focus.desktop
@@ -47,9 +48,11 @@ else
 
     mkdir -p "$HOME/.local/share/focus"
     cp -r ui "$HOME/.local/share/focus/"
+    cp -r assets "$HOME/.local/share/focus/"
 
     mkdir -p "$HOME/.local/share/applications"
     install -m 644 focus.desktop "$HOME/.local/share/applications/focus.desktop"
+    sed -i "s|^Exec=.*|Exec=$HOME/.local/bin/focus %U|" "$HOME/.local/share/applications/focus.desktop"
 
     mkdir -p "$HOME/.local/share/icons/hicolor/scalable/apps"
     install -m 644 assets/focus.svg "$HOME/.local/share/icons/hicolor/scalable/apps/focus.svg"

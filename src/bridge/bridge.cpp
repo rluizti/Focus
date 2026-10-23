@@ -22,6 +22,7 @@
 #include <QJsonDocument>
 #include <QDateTime>
 #include <QUrl>
+#include <QDesktopServices>
 #include <iostream>
 
 FocusBridge *FocusBridge::s_instance = nullptr;
@@ -329,6 +330,47 @@ void FocusBridge::launchFirefox(const QString &url) {
     }
 }
 
+bool FocusBridge::openExternalUrl(const QString &url) {
+    const QUrl target(url);
+    if (!target.isValid() || target.scheme().isEmpty()) return false;
+    const QString scheme = target.scheme().toLower();
+    if (scheme == "javascript" || scheme == "data" || scheme == "file" || scheme == "qrc") return false;
+
+    // If Focus is the selected browser, QDesktopServices would route HTTP(S)
+    // back into Focus. OAuth must leave the embedded WebEngine, so select an
+    // installed external browser in that case instead of creating a loop.
+    if (scheme == "http" || scheme == "https") {
+        QProcess browserSetting;
+        browserSetting.start("omarchy-cmd-default-browser");
+        bool gotDefault = browserSetting.waitForFinished(1500) && browserSetting.exitCode() == 0;
+        QString defaultBrowser = gotDefault
+            ? QString::fromUtf8(browserSetting.readAllStandardOutput()).trimmed()
+            : QString();
+        if (!gotDefault) {
+            browserSetting.start("xdg-settings", QStringList() << "get" << "default-web-browser");
+            if (browserSetting.waitForFinished(1500)) {
+                defaultBrowser = QString::fromUtf8(browserSetting.readAllStandardOutput()).trimmed();
+            }
+        }
+
+        if (defaultBrowser.contains("focus", Qt::CaseInsensitive)) {
+            const QStringList candidates = {
+                "zen-browser", "firefox", "chromium", "google-chrome-stable",
+                "brave", "librewolf", "waterfox"
+            };
+            for (const QString &browser : candidates) {
+                const QString executable = QStandardPaths::findExecutable(browser);
+                if (!executable.isEmpty()) {
+                    return QProcess::startDetached(executable, QStringList() << target.toString());
+                }
+            }
+            return false;
+        }
+    }
+
+    return QDesktopServices::openUrl(target);
+}
+
 void FocusBridge::initThemeWatcher() {
     m_themeWatcher = new QFileSystemWatcher(this);
     QString stateDir = QDir::homePath() + "/.local/state/omarchy/current";
@@ -442,6 +484,23 @@ void FocusBridge::toggleSettings() {
 
 void FocusBridge::closeBrowser() {
     QGuiApplication::quit();
+}
+
+bool FocusBridge::isDefaultBrowser() const {
+    QProcess proc;
+    proc.start("xdg-settings", QStringList() << "get" << "default-web-browser");
+    if (proc.waitForFinished(2000)) {
+        QString current = QString::fromUtf8(proc.readAllStandardOutput()).trimmed();
+        return current.contains("focus", Qt::CaseInsensitive);
+    }
+    return false;
+}
+
+void FocusBridge::setAsDefaultBrowser() {
+    QProcess::execute("xdg-settings", QStringList() << "set" << "default-web-browser" << "focus.desktop");
+    QProcess::execute("xdg-mime", QStringList() << "default" << "focus.desktop" << "x-scheme-handler/http");
+    QProcess::execute("xdg-mime", QStringList() << "default" << "focus.desktop" << "x-scheme-handler/https");
+    QProcess::execute("xdg-mime", QStringList() << "default" << "focus.desktop" << "text/html");
 }
 
 bool FocusBridge::isBitwardenInstalled() const {
@@ -754,6 +813,21 @@ public:
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override {
+        if (event->type() == QEvent::ShortcutOverride) {
+            // ShortcutOverride is sent BEFORE KeyPress.
+            // Accepting it tells Qt "I want this key" and prevents
+            // WebEngineView / Chromium from consuming it.
+            auto *keyEvent = static_cast<QKeyEvent *>(event);
+            int key = keyEvent->key();
+            Qt::KeyboardModifiers mods = keyEvent->modifiers();
+
+            if (key == Qt::Key_Escape) event->accept();
+            if (key == Qt::Key_Space && (mods & (Qt::AltModifier | Qt::ControlModifier))) {
+                event->accept();
+                return true;
+            }
+        }
+
         if (event->type() == QEvent::KeyPress) {
             auto *keyEvent = static_cast<QKeyEvent *>(event);
             int key = keyEvent->key();
@@ -773,11 +847,6 @@ protected:
                 }
             }
 
-            // Escape: Close launcher if open
-            if (key == Qt::Key_Escape && m_bridge->launcherVisible()) {
-                m_bridge->setLauncherVisible(false);
-                return true;
-            }
         }
         return QObject::eventFilter(watched, event);
     }
