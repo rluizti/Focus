@@ -129,6 +129,7 @@ Window {
     }
     Component.onCompleted: {
         window.restoreSession();
+        launcher.initializeSessionHistory();
         checkFirstLaunchDefaultBrowserTimer.restart();
     }
 
@@ -213,6 +214,7 @@ Window {
                     tabGroup: (tabsModel.count > 0 && activeTabIndex < tabsModel.count) ? (tabsModel.get(activeTabIndex).tabGroup || "Geral") : "Geral",
                     favicon: ""
                 });
+                launcher.rememberSessionTab(tabsModel.count - 1);
                 splitTabIndex = tabsModel.count - 1;
             } else {
                 if (splitTabIndex === activeTabIndex) {
@@ -254,6 +256,7 @@ Window {
                     tabsModel.setProperty(0, "isAwake", true);
                     bridge.currentUrl = t.url;
                     window.activeWebTitle = t.title || t.domain || "";
+                    launcher.rememberSessionTab(0);
                 } else {
                     // Adiciona APENAS os dados básicos: título, url, domínio, favicon.
                     // isAwake: false mantém o WebEngineView NÃO instanciado (0 processos, 0 RAM, 0 travamento)
@@ -266,6 +269,7 @@ Window {
                         favicon: "",
                         isAwake: false
                     });
+                    launcher.rememberSessionTab(tabsModel.count - 1);
                 }
             }
 
@@ -326,8 +330,10 @@ Window {
             if (sess.activeWorkspace) {
                 launcher.activeWorkspace = sess.activeWorkspace;
             }
-            if (sess.activeGroupName) {
+            if (sess.activeGroupName && sess.activeGroupName !== "Geral") {
                 launcher.activeGroupName = sess.activeGroupName;
+            } else {
+                launcher.activeGroupName = "Agora";
             }
             if (sess.tabs && Array.isArray(sess.tabs) && sess.tabs.length > 0) {
                 tabsModel.clear();
@@ -1232,6 +1238,7 @@ Window {
                 favicon: "",
                 isAwake: true
             });
+            launcher.rememberSessionTab(tabsModel.count - 1);
             if (window.splitViewActive && window.focusedPane === "right") {
                 window.splitTabIndex = tabsModel.count - 1;
             } else {
@@ -1253,6 +1260,7 @@ Window {
                 favicon: "",
                 isAwake: true
             });
+            launcher.rememberSessionTab(tabsModel.count - 1);
             if (window.splitViewActive && window.focusedPane === "right") {
                 window.splitTabIndex = tabsModel.count - 1;
             } else {
@@ -1290,6 +1298,7 @@ Window {
 
         onCloseTabRequested: function(index) {
             if (tabsModel.count > 1) {
+                launcher.forgetSessionTab(index);
                 tabsModel.remove(index);
                 if (window.activeTabIndex >= tabsModel.count) {
                     window.activeTabIndex = tabsModel.count - 1;

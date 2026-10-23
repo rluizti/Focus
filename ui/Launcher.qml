@@ -59,7 +59,8 @@ Item {
     property var workspaceGroups: ({ "Principal": ["Geral"], "Trabalho": ["Geral"], "Pessoal": ["Geral"] })
     property var collapsedGroups: ({})
     property int groupsVersion: 0
-    property string activeGroupName: "Geral"
+    property string activeGroupName: "Agora"
+    property var sessionRecentTabIds: []
     property string dragOverGroupName: ""
     property string dragReorderTargetGroup: ""
     property int dragReorderTargetTabIndex: -1
@@ -410,7 +411,7 @@ Item {
                             target: groupSelectorBtn
                             acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
                             onWheel: function(event) {
-                                var grps = root.getGroupsForWorkspace(root.activeWorkspace);
+                                var grps = root.getGroupSwitcherOptions(root.activeWorkspace);
                                 if (grps.length > 1) {
                                     var curIdx = grps.indexOf(root.activeGroupName);
                                     if (curIdx === -1) curIdx = 0;
@@ -432,19 +433,92 @@ Item {
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
                             acceptedButtons: Qt.LeftButton | Qt.RightButton
-                            onEntered: root.showTooltip(groupSelectorBtn, "Grupo: " + (root.activeGroupName || "Geral") + " • Role p/ alternar")
+                            onEntered: root.showTooltip(groupSelectorBtn, "Grupo: " + (root.activeGroupName || "Agora") + " • Clique para escolher")
                             onExited: root.hideTooltip()
                             onClicked: function(mouse) {
                                 if (mouse.button === Qt.RightButton) {
-                                    var pt = mapToItem(launcherCard, mouse.x, mouse.y);
-                                    grpContextMenu.openMenu(root.activeGroupName, pt.x, pt.y);
+                                    if (root.activeGroupName !== "Agora") {
+                                        var pt = mapToItem(launcherCard, mouse.x, mouse.y);
+                                        grpContextMenu.openMenu(root.activeGroupName, pt.x, pt.y);
+                                    }
                                 } else {
-                                    var grps = root.getGroupsForWorkspace(root.activeWorkspace);
-                                    if (grps.length > 1) {
-                                        var curIdx = grps.indexOf(root.activeGroupName);
-                                        var nextIdx = (curIdx + 1) % grps.length;
-                                        root.activeGroupName = grps[nextIdx];
-                                        root.groupsVersion++;
+                                    groupSwitcherMenu.openAtButton();
+                                }
+                            }
+                        }
+
+                        Popup {
+                            id: groupSwitcherMenu
+                            parent: root
+                            width: 190
+                            height: groupSwitcherColumn.childrenRect.height + 10
+                            padding: 5
+                            modal: false
+                            focus: true
+                            closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+                            z: 100000
+
+                            function openAtButton() {
+                                var point = groupSelectorBtn.mapToItem(root, 0, groupSelectorBtn.height + 4);
+                                x = Math.max(8, Math.min(root.width - width - 8, point.x));
+                                y = Math.max(8, Math.min(root.height - height - 8, point.y));
+                                open();
+                            }
+
+                            background: Rectangle {
+                                radius: root.itemRadius
+                                color: Theme.surface
+                                border.color: Theme.activeBorder
+                                border.width: 1
+                            }
+
+                            contentItem: Column {
+                                id: groupSwitcherColumn
+                                width: groupSwitcherMenu.width - 10
+                                spacing: 2
+
+                                Repeater {
+                                    model: root.getGroupSwitcherOptions(root.activeWorkspace)
+
+                                    Rectangle {
+                                        width: groupSwitcherMenu.width - 10
+                                        height: 28
+                                        radius: root.itemRadius
+                                        color: groupOptionMouse.containsMouse || root.activeGroupName === modelData ? Theme.selection : "transparent"
+
+                                        Row {
+                                            anchors.fill: parent
+                                            anchors.leftMargin: 8
+                                            spacing: 8
+
+                                            Glyph {
+                                                name: modelData === "Agora" ? "history" : "folder"
+                                                size: 12
+                                                color: root.activeGroupName === modelData ? Theme.accent : Theme.dimForeground
+                                                anchors.verticalCenter: parent.verticalCenter
+                                            }
+
+                                            Text {
+                                                text: modelData
+                                                color: Theme.foreground
+                                                font.family: Theme.fontFamily
+                                                font.pixelSize: 11
+                                                font.bold: root.activeGroupName === modelData
+                                                anchors.verticalCenter: parent.verticalCenter
+                                            }
+                                        }
+
+                                        MouseArea {
+                                            id: groupOptionMouse
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: {
+                                                root.activeGroupName = modelData;
+                                                root.groupsVersion++;
+                                                groupSwitcherMenu.close();
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -1418,13 +1492,13 @@ Item {
                 property int totalContentHeight: {
                     var dummy = root.groupsVersion;
                     var ws = root.activeWorkspace;
-                    var grps = root.getGroupsForWorkspace(ws);
+                    var grps = root.getVisibleGroupsForWorkspace(ws);
                     var h = 0;
                     for (var g = 0; g < grps.length; g++) {
                         h += 30; // cabeçalho do grupo
                         var grp = grps[g];
-                        if (!root.isGroupCollapsed(ws, grp)) {
-                            var tCount = root.countTabsInGroup(ws, grp);
+                        if (grp === "Agora" || !root.isGroupCollapsed(ws, grp)) {
+                            var tCount = grp === "Agora" ? root.activeGroupTabs.length : root.countTabsInGroup(ws, grp);
                             if (tCount === 0) {
                                 h += 26; // linha informativa
                             } else {
@@ -1558,7 +1632,7 @@ Item {
                             Repeater {
                                 model: {
                                     var dummy = root.groupsVersion;
-                                    return root.getGroupsForWorkspace(root.activeWorkspace);
+                                    return root.getVisibleGroupsForWorkspace(root.activeWorkspace);
                                 }
 
                                 Item {
@@ -1589,13 +1663,13 @@ Item {
                                         width: parent.width
                                         spacing: 3
                                         property string groupName: modelData
-                                        property bool isCollapsed: root.isGroupCollapsed(root.activeWorkspace, groupName)
+                                        property bool isCollapsed: groupName !== "Agora" && root.isGroupCollapsed(root.activeWorkspace, groupName)
                                         property int tabsCount: {
                                             var dummy = root.groupsVersion;
-                                            return root.countTabsInGroup(root.activeWorkspace, groupName);
+                                            return groupName === "Agora" ? root.activeGroupTabs.length : root.countTabsInGroup(root.activeWorkspace, groupName);
                                         }
-                                        property bool isDragOver: (groupDropArea.containsDrag || (tabDragAvatar.isDragging && root.dragOverGroupName === groupName)) && tabDragAvatar.dragSourceGroup !== groupName
-                                        property bool isReorderTarget: groupDragAvatar.isDragging && root.dragReorderTargetGroup === groupName && groupDragAvatar.sourceGroup !== groupName
+                                        property bool isDragOver: groupName !== "Agora" && (groupDropArea.containsDrag || (tabDragAvatar.isDragging && root.dragOverGroupName === groupName)) && tabDragAvatar.dragSourceGroup !== groupName
+                                        property bool isReorderTarget: groupName !== "Agora" && groupDragAvatar.isDragging && root.dragReorderTargetGroup === groupName && groupDragAvatar.sourceGroup !== groupName
 
                                         // Cabeçalho do Grupo de Abas (Clique para expandir/retrair ou arraste para reorganizar)
                                         Rectangle {
@@ -1661,6 +1735,7 @@ Item {
                                             id: addTabToGroupBtn
                                             width: 20
                                             height: 20
+                                        visible: groupCol.groupName !== "Agora"
                                             radius: root.itemRadius
                                             color: addTabToGroupMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.15) : "transparent"
                                             anchors.right: parent.right
@@ -1702,7 +1777,7 @@ Item {
                                             property bool isPressed: false
 
                                             onPressed: function(mouse) {
-                                                if (mouse.button === Qt.LeftButton) {
+                                                if (mouse.button === Qt.LeftButton && groupCol.groupName !== "Agora") {
                                                     isPressed = true;
                                                     pressX = mouse.x;
                                                     pressY = mouse.y;
@@ -1752,11 +1827,15 @@ Item {
                                             onClicked: function(mouse) {
                                                 if (!groupDragAvatar.isDragging) {
                                                     if (mouse.button === Qt.RightButton) {
-                                                        var pt = mapToItem(launcherCard, mouse.x, mouse.y);
-                                                        grpContextMenu.openMenu(groupCol.groupName, pt.x, pt.y);
+                                                        if (groupCol.groupName !== "Agora") {
+                                                            var pt = mapToItem(launcherCard, mouse.x, mouse.y);
+                                                            grpContextMenu.openMenu(groupCol.groupName, pt.x, pt.y);
+                                                        }
                                                     } else {
                                                         root.activeGroupName = groupCol.groupName;
-                                                        root.toggleGroupCollapsed(root.activeWorkspace, groupCol.groupName);
+                                                        if (groupCol.groupName !== "Agora") {
+                                                            root.toggleGroupCollapsed(root.activeWorkspace, groupCol.groupName);
+                                                        }
                                                     }
                                                 }
                                             }
@@ -1776,6 +1855,7 @@ Item {
                                             Item {
                                                 id: tabDelegate
                                                 property bool belongsToThisGroup: {
+                                                    if (groupCol.groupName === "Agora") return root.isSessionNowTab(model.tabId);
                                                     var ws = (model.workspace && model.workspace.length > 0) ? model.workspace : "Principal";
                                                     var grp = (model.tabGroup && model.tabGroup.length > 0) ? model.tabGroup : "Geral";
                                                     return ws === root.activeWorkspace && grp === groupCol.groupName;
@@ -1854,7 +1934,11 @@ Item {
                                                                 if (root.dragReorderTargetTabIndex >= 0) {
                                                                     var targetDelegate = tabsInGroupCol.itemAt(root.dragReorderTargetTabIndex);
                                                                     var targetCenter = targetDelegate.mapToItem(launcherCard, targetDelegate.width / 2, targetDelegate.height / 2);
-                                                                    root.reorderTab(index, root.dragReorderTargetTabIndex, pt.y >= targetCenter.y);
+                                                                    if (groupCol.groupName === "Agora") {
+                                                                        root.reorderSessionTab(index, root.dragReorderTargetTabIndex, pt.y >= targetCenter.y);
+                                                                    } else {
+                                                                        root.reorderTab(index, root.dragReorderTargetTabIndex, pt.y >= targetCenter.y);
+                                                                    }
                                                                 } else {
                                                                     root.checkDropOnGroup(pt.x, pt.y, index, groupCol.groupName);
                                                                 }
@@ -3571,6 +3655,79 @@ Item {
         return list;
     }
 
+    function getGroupSwitcherOptions(ws) {
+        var options = ["Agora"];
+        var groups = getGroupsForWorkspace(ws);
+        for (var i = 0; i < groups.length; i++) {
+            if (groups[i] !== "Agora") options.push(groups[i]);
+        }
+        return options;
+    }
+
+    function getVisibleGroupsForWorkspace(ws) {
+        return root.activeGroupName === "Agora" ? ["Agora"] : getGroupsForWorkspace(ws);
+    }
+
+    function initializeSessionHistory() {
+        var ids = [];
+        if (root.tabsModel) {
+            if (root.activeTabIndex >= 0 && root.activeTabIndex < root.tabsModel.count) {
+                var activeTab = root.tabsModel.get(root.activeTabIndex);
+                if (activeTab) ids.push(activeTab.tabId);
+            }
+            for (var i = root.tabsModel.count - 1; i >= 0; i--) {
+                if (i === root.activeTabIndex) continue;
+                var tab = root.tabsModel.get(i);
+                if (tab) ids.push(tab.tabId);
+            }
+        }
+        root.sessionRecentTabIds = ids;
+        root.groupsVersion++;
+    }
+
+    function rememberSessionTab(tabIndex) {
+        if (!root.tabsModel || tabIndex < 0 || tabIndex >= root.tabsModel.count) return;
+        var tab = root.tabsModel.get(tabIndex);
+        if (!tab) return;
+        var id = tab.tabId;
+        var ids = root.sessionRecentTabIds.slice();
+        ids = ids.filter(function(existingId) { return existingId !== id; });
+        ids.unshift(id);
+        root.sessionRecentTabIds = ids;
+        root.groupsVersion++;
+    }
+
+    function forgetSessionTab(tabIndex) {
+        if (!root.tabsModel || tabIndex < 0 || tabIndex >= root.tabsModel.count) return;
+        var tab = root.tabsModel.get(tabIndex);
+        if (!tab) return;
+        root.sessionRecentTabIds = root.sessionRecentTabIds.filter(function(id) { return id !== tab.tabId; });
+        root.groupsVersion++;
+    }
+
+    function isSessionNowTab(tabId) {
+        return root.sessionRecentTabIds.indexOf(tabId) !== -1;
+    }
+
+    function reorderSessionTab(sourceIndex, targetIndex, placeAfter) {
+        if (!root.tabsModel || sourceIndex === targetIndex) return;
+        var source = root.tabsModel.get(sourceIndex);
+        var target = root.tabsModel.get(targetIndex);
+        if (!source || !target) return;
+        var ids = root.sessionRecentTabIds.slice();
+        var from = ids.indexOf(source.tabId);
+        var to = ids.indexOf(target.tabId);
+        if (from < 0 || to < 0 || from === to) return;
+        var destination = to + (placeAfter ? 1 : 0);
+        if (from < destination) destination--;
+        destination = Math.max(0, Math.min(ids.length - 1, destination));
+        ids.splice(from, 1);
+        ids.splice(destination, 0, source.tabId);
+        root.sessionRecentTabIds = ids;
+        root.groupsVersion++;
+        bridge.saveSession(root.serializeSession());
+    }
+
     function isGroupCollapsed(ws, groupName) {
         var dummy = root.groupsVersion;
         var key = ws + "::" + groupName;
@@ -3612,6 +3769,24 @@ Item {
     function getTabsInActiveGroup() {
         var dummy = root.groupsVersion;
         if (!root.tabsModel) return [];
+        if (root.activeGroupName === "Agora") {
+            var recent = [];
+            for (var r = 0; r < root.sessionRecentTabIds.length; r++) {
+                var recentId = root.sessionRecentTabIds[r];
+                for (var ri = 0; ri < root.tabsModel.count; ri++) {
+                    var recentTab = root.tabsModel.get(ri);
+                    if (recentTab && recentTab.tabId === recentId) {
+                        recent.push({
+                            globalIndex: ri,
+                            title: recentTab.title || recentTab.url || "Nova Aba",
+                            url: recentTab.url || ""
+                        });
+                        break;
+                    }
+                }
+            }
+            return recent;
+        }
         var ws = root.activeWorkspace;
         var grp = root.activeGroupName || "Geral";
         var list = [];
@@ -3632,7 +3807,7 @@ Item {
     }
 
     function ensureActiveGroup() {
-        var grps = getGroupsForWorkspace(root.activeWorkspace);
+        var grps = getGroupSwitcherOptions(root.activeWorkspace);
         if (grps.indexOf(root.activeGroupName) === -1) {
             root.activeGroupName = grps.length > 0 ? grps[0] : "Geral";
         }
@@ -3811,6 +3986,11 @@ Item {
         if (!root.tabsModel || tabIndex < 0 || tabIndex >= root.tabsModel.count) return;
         var tab = root.tabsModel.get(tabIndex);
         if (!tab) return;
+        if (targetGroupName === "Agora") {
+            root.rememberSessionTab(tabIndex);
+            root.activeGroupName = "Agora";
+            return;
+        }
         var curGroup = tab.tabGroup || "Geral";
         if (curGroup === targetGroupName) return;
 
