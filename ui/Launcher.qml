@@ -62,6 +62,7 @@ Item {
     property string activeGroupName: "Geral"
     property string dragOverGroupName: ""
     property string dragReorderTargetGroup: ""
+    property int dragReorderTargetTabIndex: -1
     // Pinned rows only appear when user clicks to expand the box
     property bool isExpanded: false
     property bool isSiteConfigExpanded: false
@@ -1782,6 +1783,7 @@ Item {
                                                     var grp = (model.tabGroup && model.tabGroup.length > 0) ? model.tabGroup : "Geral";
                                                     return ws === root.activeWorkspace && grp === groupCol.groupName;
                                                 }
+                                                property alias rowRect: tabRowRect
 
                                                 width: groupCol.width
                                                 height: belongsToThisGroup ? 30 : 0
@@ -1792,9 +1794,9 @@ Item {
                                                     width: parent.width
                                                     height: parent.height
                                                     radius: root.itemRadius
-                                                    color: root.activeTabIndex === index ? Theme.selection : (tabRowMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.04) : "transparent")
-                                                    border.color: root.activeTabIndex === index ? Theme.accent : "transparent"
-                                                    border.width: 1
+                                                    color: root.activeTabIndex === index ? Theme.selection : (root.dragReorderTargetTabIndex === index ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.2) : (tabRowMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.04) : "transparent"))
+                                                    border.color: root.activeTabIndex === index || root.dragReorderTargetTabIndex === index ? Theme.accent : "transparent"
+                                                    border.width: root.dragReorderTargetTabIndex === index ? 2 : 1
 
                                                     MouseArea {
                                                         id: tabRowMouse
@@ -1836,15 +1838,32 @@ Item {
                                                                 tabDragAvatar.x = pt.x - 20;
                                                                 tabDragAvatar.y = pt.y - 16;
                                                                 root.updateDragOverGroup(pt.x, pt.y);
+                                                                root.dragReorderTargetTabIndex = -1;
+                                                                for (var targetPos = 0; targetPos < tabsInGroupCol.count; targetPos++) {
+                                                                    var targetDelegate = tabsInGroupCol.itemAt(targetPos);
+                                                                    if (!targetDelegate || !targetDelegate.belongsToThisGroup || targetPos === index) continue;
+                                                                    var targetCenter = targetDelegate.mapToItem(launcherCard, targetDelegate.width / 2, targetDelegate.height / 2);
+                                                                    if (Math.abs(pt.y - targetCenter.y) <= targetDelegate.height / 2 + 5) {
+                                                                        root.dragReorderTargetTabIndex = targetPos;
+                                                                        break;
+                                                                    }
+                                                                }
                                                             }
                                                         }
 
                                                         onReleased: function(mouse) {
                                                             if (tabDragAvatar.isDragging && tabDragAvatar.dragTabIndex === index) {
                                                                 var pt = mapToItem(launcherCard, mouse.x, mouse.y);
-                                                                root.checkDropOnGroup(pt.x, pt.y, index, groupCol.groupName);
+                                                                if (root.dragReorderTargetTabIndex >= 0) {
+                                                                    var targetDelegate = tabsInGroupCol.itemAt(root.dragReorderTargetTabIndex);
+                                                                    var targetCenter = targetDelegate.mapToItem(launcherCard, targetDelegate.width / 2, targetDelegate.height / 2);
+                                                                    root.reorderTab(index, root.dragReorderTargetTabIndex, pt.y >= targetCenter.y);
+                                                                } else {
+                                                                    root.checkDropOnGroup(pt.x, pt.y, index, groupCol.groupName);
+                                                                }
                                                                 tabDragAvatar.isDragging = false;
                                                                 root.dragOverGroupName = "";
+                                                                root.dragReorderTargetTabIndex = -1;
                                                                 resetDragTimer.restart();
                                                             }
                                                             isPressed = false;
@@ -1854,6 +1873,7 @@ Item {
                                                             if (tabDragAvatar.isDragging) {
                                                                 tabDragAvatar.isDragging = false;
                                                                 root.dragOverGroupName = "";
+                                                                root.dragReorderTargetTabIndex = -1;
                                                                 resetDragTimer.restart();
                                                             }
                                                             isPressed = false;
@@ -3759,6 +3779,35 @@ Item {
         if (tab) {
             root.newTabInGroupRequested(tab.url, tab.workspace || "Principal", tab.tabGroup || "Geral");
         }
+    }
+
+    function reorderTab(sourceIndex, targetIndex, placeAfter) {
+        if (!root.tabsModel || sourceIndex < 0 || targetIndex < 0
+                || sourceIndex >= root.tabsModel.count || targetIndex >= root.tabsModel.count
+                || sourceIndex === targetIndex) return;
+        var source = root.tabsModel.get(sourceIndex);
+        var target = root.tabsModel.get(targetIndex);
+        if (!source || !target
+                || (source.workspace || "Principal") !== (target.workspace || "Principal")
+                || (source.tabGroup || "Geral") !== (target.tabGroup || "Geral")) return;
+
+        var destination = targetIndex + (placeAfter ? 1 : 0);
+        if (sourceIndex < destination) destination--;
+        destination = Math.max(0, Math.min(root.tabsModel.count - 1, destination));
+        if (sourceIndex === destination) return;
+
+        function remapTabIndex(currentIndex) {
+            if (currentIndex === sourceIndex) return destination;
+            if (sourceIndex < destination && currentIndex > sourceIndex && currentIndex <= destination) return currentIndex - 1;
+            if (destination < sourceIndex && currentIndex >= destination && currentIndex < sourceIndex) return currentIndex + 1;
+            return currentIndex;
+        }
+
+        root.tabsModel.move(sourceIndex, destination, 1);
+        root.activeTabIndex = remapTabIndex(root.activeTabIndex);
+        root.splitTabIndex = remapTabIndex(root.splitTabIndex);
+        root.groupsVersion++;
+        bridge.saveSession(root.serializeSession());
     }
 
     function moveTabToGroup(tabIndex, targetGroupName) {

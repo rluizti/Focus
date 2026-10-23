@@ -1540,7 +1540,7 @@ Window {
             color: Theme.foreground
             font.family: Theme.fontFamily
             font.pixelSize: 12
-            text: "O login foi aberto fora do Focus. A sessão fica no navegador externo."
+            text: "O login abriu no navegador externo. Use a extensão Bitwarden desse navegador; o cofre integrado do Focus não acessa outras janelas."
         }
     }
 

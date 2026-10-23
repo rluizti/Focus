@@ -814,14 +814,12 @@ public:
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override {
         if (event->type() == QEvent::ShortcutOverride) {
-            // ShortcutOverride is sent BEFORE KeyPress.
-            // Accepting it tells Qt "I want this key" and prevents
-            // WebEngineView / Chromium from consuming it.
+            // Reserve modified Space for the application launcher before
+            // WebEngineView / Chromium can consume it.
             auto *keyEvent = static_cast<QKeyEvent *>(event);
             int key = keyEvent->key();
             Qt::KeyboardModifiers mods = keyEvent->modifiers();
 
-            if (key == Qt::Key_Escape) event->accept();
             if (key == Qt::Key_Space && (mods & (Qt::AltModifier | Qt::ControlModifier))) {
                 event->accept();
                 return true;
