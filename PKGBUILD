@@ -2,7 +2,7 @@
 pkgname=focus-browser-git
 _pkgname=focus
 pkgver=0.1.0
-pkgrel=4
+pkgrel=5
 pkgdesc="Navegador web minimalista, veloz e focado para Omarchy OS"
 arch=('x86_64')
 url="https://github.com/rluizti/Focus"

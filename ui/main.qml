@@ -100,6 +100,33 @@ Window {
     onClosing: function(close) {
         window.saveCurrentSession();
     }
+    function handleEscapeKey(): bool {
+        if (bitwardenModal.visible) {
+            bitwardenModal.closeModal();
+        } else if (savePasswordPrompt.visible) {
+            savePasswordPrompt.dismiss();
+        } else if (contextMenu.visible) {
+            contextMenu.dismiss();
+        } else if (historyModal.visible) {
+            historyModal.closeModal();
+        } else if (window.devToolsOpen) {
+            window.devToolsOpen = false;
+        } else if (bridge.settingsVisible) {
+            bridge.settingsVisible = false;
+        } else if (bridge.launcherVisible) {
+            if (launcher.isSiteConfigExpanded) {
+                launcher.isSiteConfigExpanded = false;
+            } else {
+                launcher.isExpanded = false;
+                bridge.launcherVisible = false;
+            }
+        } else if (window.splitViewActive) {
+            window.splitViewActive = false;
+        } else {
+            return false;
+        }
+        return true;
+    }
     Component.onCompleted: {
         window.restoreSession();
         checkFirstLaunchDefaultBrowserTimer.restart();
@@ -1495,24 +1522,7 @@ Window {
         sequence: "Escape"
         context: Qt.ApplicationShortcut
         enabled: true
-        onActivated: {
-            if (bitwardenModal.visible) {
-                bitwardenModal.closeModal();
-            } else if (savePasswordPrompt.visible) {
-                savePasswordPrompt.dismiss();
-            } else if (contextMenu.visible) {
-                contextMenu.dismiss();
-            } else if (window.devToolsOpen) {
-                window.devToolsOpen = false;
-            } else if (bridge.settingsVisible) {
-                bridge.settingsVisible = false;
-            } else if (bridge.launcherVisible) {
-                launcher.isExpanded = false;
-                bridge.launcherVisible = false;
-            } else if (window.splitViewActive) {
-                window.splitViewActive = false;
-            }
-        }
+        onActivated: window.handleEscapeKey()
     }
 
     Rectangle {

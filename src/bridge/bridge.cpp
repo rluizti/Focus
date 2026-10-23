@@ -811,6 +811,8 @@ public:
     explicit GlobalKeyFilter(FocusBridge *bridge, QObject *parent = nullptr)
         : QObject(parent), m_bridge(bridge) {}
 
+    void setRootObject(QObject *rootObject) { m_rootObject = rootObject; }
+
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override {
         if (event->type() == QEvent::ShortcutOverride) {
@@ -830,6 +832,14 @@ protected:
             auto *keyEvent = static_cast<QKeyEvent *>(event);
             int key = keyEvent->key();
             Qt::KeyboardModifiers mods = keyEvent->modifiers();
+
+            if (key == Qt::Key_Escape && m_rootObject) {
+                bool handled = false;
+                if (QMetaObject::invokeMethod(m_rootObject, "handleEscapeKey", Qt::DirectConnection,
+                                              Q_RETURN_ARG(bool, handled)) && handled) {
+                    return true;
+                }
+            }
 
             // Alt+Space or Ctrl+Space: Always toggle launcher
             if (key == Qt::Key_Space && (mods & (Qt::AltModifier | Qt::ControlModifier))) {
@@ -851,6 +861,7 @@ protected:
 
 private:
     FocusBridge *m_bridge;
+    QObject *m_rootObject = nullptr;
 };
 
 extern "C" {
@@ -954,6 +965,7 @@ int focus_run_gui(
         std::cerr << "Focus: Engine root objects empty on startup!" << std::endl;
         return -1;
     }
+    keyFilter->setRootObject(engine.rootObjects().first());
 
     return app.exec();
 }
