@@ -729,30 +729,25 @@ Item {
                 // Faixa deslizante de pontos com pequenos números (Fica DENTRO da caixa de endereço quando expande)
                 Rectangle {
                     id: pageDotsStrip
-                    height: 14
+                    height: 22
                     anchors.bottom: parent.bottom
-                    anchors.bottomMargin: 3
+                    anchors.bottomMargin: 0
                     anchors.horizontalCenter: parent.horizontalCenter
-                    width: Math.min(parent.width - 240, Math.max(36, (root.activeGroupTabs ? root.activeGroupTabs.length : 0) * 19 + 16))
-                    radius: 7
-                    color: Qt.rgba(0, 0, 0, 0.35)
-                    border.color: Qt.rgba(255, 255, 255, 0.08)
-                    border.width: 1
+                    width: Math.min(parent.width - 200, Math.max(26, (root.activeGroupTabs ? root.activeGroupTabs.length : 0) * 32 + 10))
+                    color: "transparent"
                     visible: root.isExpanded && root.activeGroupTabs && root.activeGroupTabs.length > 0
                     clip: true
 
                     ListView {
                         id: pageDotsList
                         anchors.fill: parent
-                        anchors.leftMargin: 4
-                        anchors.rightMargin: 4
                         orientation: ListView.Horizontal
-                        spacing: 4
+                        spacing: 6
                         boundsBehavior: Flickable.StopAtBounds
                         model: root.activeGroupTabs
 
-                        preferredHighlightBegin: parent.width / 2 - 11
-                        preferredHighlightEnd: parent.width / 2 + 11
+                        preferredHighlightBegin: parent.width / 2 - 14
+                        preferredHighlightEnd: parent.width / 2 + 14
                         highlightRangeMode: ListView.StrictlyEnforceRange
 
                         Connections {
@@ -772,12 +767,12 @@ Item {
                         delegate: Rectangle {
                             id: dotItem
                             readonly property bool isActive: modelData && modelData.globalIndex === root.activeTabIndex
-                            width: isActive ? 22 : 14
-                            height: 10
-                            radius: 5
+                            width: isActive ? 28 : 22
+                            height: 22
+                            radius: 11
                             anchors.verticalCenter: parent.verticalCenter
-                            color: isActive ? Theme.accent : (dotMouse.containsMouse ? Qt.rgba(255, 255, 255, 0.30) : Qt.rgba(255, 255, 255, 0.12))
-                            border.color: isActive ? Theme.accent : "transparent"
+                            color: isActive ? Theme.accent : (dotMouse.containsMouse ? Theme.selection : Qt.rgba(Theme.surface.r, Theme.surface.g, Theme.surface.b, 0.90))
+                            border.color: isActive ? Theme.accent : (dotMouse.containsMouse ? Theme.accent : Qt.rgba(255, 255, 255, 0.22))
                             border.width: 1
 
                             Behavior on width {
@@ -790,10 +785,10 @@ Item {
                             Text {
                                 text: (index + 1).toString()
                                 anchors.centerIn: parent
-                                font.pixelSize: 8
+                                font.pixelSize: 11
                                 font.bold: true
                                 font.family: Theme.fontFamily
-                                color: dotItem.isActive ? Theme.background : Theme.dimForeground
+                                color: dotItem.isActive ? Theme.background : Theme.foreground
                             }
 
                             MouseArea {
@@ -801,6 +796,8 @@ Item {
                                 anchors.fill: parent
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
+                                onEntered: root.showTooltip(dotItem, "Aba " + (index + 1) + ": " + (modelData ? modelData.title : ""))
+                                onExited: root.hideTooltip()
                                 onClicked: {
                                     if (modelData) {
                                         root.switchTab(modelData.globalIndex);
